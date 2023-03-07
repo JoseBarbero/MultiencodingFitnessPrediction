@@ -131,3 +131,4 @@ dmypy.json
 # JBA
 /data
 /data_onehot/
+results*
