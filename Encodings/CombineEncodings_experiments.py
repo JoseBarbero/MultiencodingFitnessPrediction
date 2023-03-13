@@ -270,7 +270,7 @@ if __name__ == "__main__":
     # model = LogisticRegression(max_iter=10000, n_jobs=1)
     # model = SVC(kernel='linear', probability=True)
     # model = MLPClassifier()
-    model = LinearRegression()
+    model = LinearRegression(n_jobs=1)
     results_folder = f"results/multiview_experiments_{dataset}_{model.__class__.__name__}/"
 
     labeled_percentages = [0.5, 0.25, 0.15, 0.1, 0.05, 0.03, 0.01]
@@ -313,7 +313,9 @@ if __name__ == "__main__":
     arguments = []
     for labeled_percentage in labeled_percentages:
         arguments.extend([(enc1, enc2, encodings_dict[enc1], encodings_dict[enc2], y, labeled_percentage, model, results_folder) for enc1, enc2 in combinations(encoding_names, 2)])
-    
+    print(f"* Total number of experiments: {len(arguments)}")
+    print(f"* Number of cores: {sys.argv[2]}")
+    print(f"* Starting experiments...")
     n_cores = int(sys.argv[2])
     with Pool(n_cores) as pool:
         pool.starmap(main, arguments, chunksize=1)
