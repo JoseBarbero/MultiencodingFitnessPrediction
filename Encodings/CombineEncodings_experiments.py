@@ -30,7 +30,7 @@ from sslearn.wrapper import CoTraining
 from sklearn.base import is_classifier, is_regressor
 
 import mkl
-mkl.set_num_threads(2)
+mkl.set_num_threads(1)
 
 class ColumnExtractor(TransformerMixin):
 
