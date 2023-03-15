@@ -335,4 +335,4 @@ if __name__ == "__main__":
     # To know numpy/scipy config: https://stackoverflow.com/questions/9000164/how-to-check-blas-lapack-linkage-in-numpy-and-scipy
     n_cores = CLI.parse_args().cpus
     with Pool(n_cores) as pool:
-        pool.starmap(main, arguments, chunksize=1)
+        pool.starmap(main, arguments)
