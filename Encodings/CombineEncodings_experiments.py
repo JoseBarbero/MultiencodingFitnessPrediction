@@ -17,7 +17,7 @@ from SequenceEncoding import SequenceEncoding
 from sklearn.base import TransformerMixin, clone
 from sklearn.ensemble import RandomForestClassifier, StackingClassifier, StackingRegressor
 from sklearn.exceptions import DataConversionWarning
-from sklearn.linear_model import LogisticRegression, LinearRegression
+from sklearn.linear_model import LogisticRegression, LinearRegression, Ridge
 from sklearn.metrics import roc_auc_score, roc_curve
 from sklearn.model_selection import (StratifiedKFold, StratifiedShuffleSplit,
                                      train_test_split)
@@ -31,6 +31,8 @@ from sklearn.base import is_classifier, is_regressor
 
 import mkl
 mkl.set_num_threads(1)
+
+import argparse
 
 class ColumnExtractor(TransformerMixin):
 
@@ -47,10 +49,11 @@ class ColumnExtractor(TransformerMixin):
         return self
 
 def main(enc1, enc2, enc1_X, enc2_X, y, labeled_percentage, model, results_folder):
-    
+    print("THREAD STARTED WITH ID: ", os.getpid())
     # Change regression labels to binary labels above first quartile and below
     original_y = y.copy()
-    y = np.where(y >= np.percentile(y, 75), 1, 0).ravel()
+    if is_classifier(model):
+        y = np.where(y >= np.percentile(y, 75), 1, 0).ravel()
 
     pred_dict_ct = dict()
     pred_dict_enc1 = dict()
@@ -71,7 +74,7 @@ def main(enc1, enc2, enc1_X, enc2_X, y, labeled_percentage, model, results_folde
         os.makedirs(results_folder)
 
     # Touch files if they don't exist so the other processes don't try to run them
-    # Enc1 and Enc2 only need to be run one (but every thread could run them)
+    # Enc1 and Enc2 only need to be run once (but every thread could run them)
     # save_enc1/2 indicates if this thread should run the models and save the results
     run_enc1 = False
     run_enc2 = False
@@ -261,8 +264,19 @@ def main(enc1, enc2, enc1_X, enc2_X, y, labeled_percentage, model, results_folde
 
 
 if __name__ == "__main__":
+
+    CLI=argparse.ArgumentParser()
+    CLI.add_argument(
+        "--data", 
+        type=str
+    )
+    CLI.add_argument(
+        "--cpus",
+        type=int,
+        default=32,
+    )
     
-    dataset_folder = sys.argv[1]
+    dataset_folder = CLI.parse_args().data
     dataset = dataset_folder.split('data/')[-1].split('/')[0]
     
     # model = DecisionTreeClassifier()
@@ -270,7 +284,8 @@ if __name__ == "__main__":
     # model = LogisticRegression(max_iter=10000, n_jobs=1)
     # model = SVC(kernel='linear', probability=True)
     # model = MLPClassifier()
-    model = LinearRegression(n_jobs=1)
+    model = LinearRegression(n_jobs=1) # Da problemas de convergencia, mejor Ridge
+    #model = Ridge()
     results_folder = f"results/multiview_experiments_{dataset}_{model.__class__.__name__}/"
 
     labeled_percentages = [0.5, 0.25, 0.15, 0.1, 0.05, 0.03, 0.01]
@@ -314,13 +329,13 @@ if __name__ == "__main__":
     for labeled_percentage in labeled_percentages:
         arguments.extend([(enc1, enc2, encodings_dict[enc1], encodings_dict[enc2], y, labeled_percentage, model, results_folder) for enc1, enc2 in combinations(encoding_names, 2)])
     print(f"* Total number of experiments: {len(arguments)}")
-    print(f"* Number of cores: {sys.argv[2]}")
+    print(f"* Number of cores: {CLI.parse_args().cpus}")
     print(f"* Starting experiments...")
 
     # To avoid unintented multithreading:
     # https://stackoverflow.com/questions/19257070/unintended-multithreading-in-python-scikit-learn/42124978#42124978
     # terminal: export OPENBLAS_NUM_THREADS=1
     # To know numpy/scipy config: https://stackoverflow.com/questions/9000164/how-to-check-blas-lapack-linkage-in-numpy-and-scipy
-    n_cores = int(sys.argv[2])
+    n_cores = CLI.parse_args().cpus
     with Pool(n_cores) as pool:
-        pool.starmap(main, arguments, chunksize=1)
+        pool.starmap(main, arguments)
