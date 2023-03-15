@@ -52,8 +52,8 @@ def main(enc1, enc2, enc1_X, enc2_X, y, labeled_percentage, model, results_folde
     print("THREAD STARTED WITH ID: ", os.getpid())
     # Change regression labels to binary labels above first quartile and below
     original_y = y.copy()
-    if is_classifier(model):
-        y = np.where(y >= np.percentile(y, 75), 1, 0).ravel()
+    #if is_classifier(model):
+    y = np.where(y >= np.percentile(y, 75), 1, 0).ravel()
 
     pred_dict_ct = dict()
     pred_dict_enc1 = dict()
