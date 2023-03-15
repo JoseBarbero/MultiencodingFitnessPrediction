@@ -56,8 +56,7 @@ def main(enc1, enc2, enc1_X, enc2_X, y, labeled_percentage, model, results_folde
     # TODO If I include this if, threads stop parallelizing
     if is_classifier(model):
         y = np.where(y >= np.percentile(y, 75), 1, 0).ravel()
-    else:
-        y = y.copy().ravel()
+    print("-----------THREAD after if WITH ID: ", os.getpid())
 
     pred_dict_ct = dict()
     pred_dict_enc1 = dict()
