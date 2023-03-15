@@ -29,8 +29,7 @@ from sslearn.base import OneVsRestSSLClassifier
 from sslearn.wrapper import CoTraining
 from sklearn.base import is_classifier, is_regressor
 
-import mkl
-mkl.set_num_threads(1)
+import argparse
 
 class ColumnExtractor(TransformerMixin):
 
@@ -262,8 +261,19 @@ def main(enc1, enc2, enc1_X, enc2_X, y, labeled_percentage, model, results_folde
 
 
 if __name__ == "__main__":
+
+    CLI=argparse.ArgumentParser()
+    CLI.add_argument(
+        "--data", 
+        type=str
+    )
+    CLI.add_argument(
+        "--cpus",
+        type=int,
+        default=32,
+    )
     
-    dataset_folder = sys.argv[1]
+    dataset_folder = CLI.parse_args().data
     dataset = dataset_folder.split('data/')[-1].split('/')[0]
     
     # model = DecisionTreeClassifier()
@@ -323,6 +333,6 @@ if __name__ == "__main__":
     # https://stackoverflow.com/questions/19257070/unintended-multithreading-in-python-scikit-learn/42124978#42124978
     # terminal: export OPENBLAS_NUM_THREADS=1
     # To know numpy/scipy config: https://stackoverflow.com/questions/9000164/how-to-check-blas-lapack-linkage-in-numpy-and-scipy
-    n_cores = int(sys.argv[2])
+    n_cores = CLI.parse_args().n_cores
     with Pool(n_cores) as pool:
         pool.starmap(main, arguments, chunksize=1)

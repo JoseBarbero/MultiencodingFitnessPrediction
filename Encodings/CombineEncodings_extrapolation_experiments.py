@@ -358,7 +358,7 @@ if __name__ == "__main__":
     for variant in test_variants:
         test_indexes.extend(variants_dict[variant])
 
-    results_folder = results_folder.replace("experiments_", f"experiments_trainwith{train_variants}_testwith{test_variants}_")
+    results_folder = results_folder.replace("experiments_", f"experiments_trainedwith{train_variants}_testedwith{test_variants}_")
 
     print(f"* Total dict size: {round(sum([enc_X.nbytes for enc_X in encodings_dict.values()])/(1024*1024), 2)} MB | {round(sum([enc_X.nbytes for enc_X in encodings_dict.values()])/(1024*1024*1024), 2)} GB", flush=True)
     arguments = []
