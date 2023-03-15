@@ -49,13 +49,14 @@ class ColumnExtractor(TransformerMixin):
         return self
 
 def main(enc1, enc2, enc1_X, enc2_X, y, labeled_percentage, model, results_folder):
-    print("THREAD STARTED WITH ID: ", os.getpid())
+    
     # Change regression labels to binary labels above first quartile and below
     original_y = y.copy()
     
     # TODO If I include this if, threads stop parallelizing
-    y = np.where(y >= np.percentile(y, 75), 1, 0).ravel()
-    print("-----------THREAD after if WITH ID: ", os.getpid())
+    if is_classifier(model):
+        y = np.where(y >= np.percentile(y, 75), 1, 0).ravel()
+    
 
     pred_dict_ct = dict()
     pred_dict_enc1 = dict()
@@ -286,8 +287,8 @@ if __name__ == "__main__":
     # model = LogisticRegression(max_iter=10000, n_jobs=1)
     # model = SVC(kernel='linear', probability=True)
     # model = MLPClassifier()
-    model = LinearRegression(n_jobs=1) # Da problemas de convergencia, mejor Ridge
-    #model = Ridge()
+    # model = LinearRegression(n_jobs=1) # Da problemas de convergencia, mejor Ridge
+    model = Ridge()
     results_folder = f"results/multiview_experiments_{dataset}_{model.__class__.__name__}/"
 
     labeled_percentages = [0.5, 0.25, 0.15, 0.1, 0.05, 0.03, 0.01]
@@ -340,4 +341,4 @@ if __name__ == "__main__":
     # To know numpy/scipy config: https://stackoverflow.com/questions/9000164/how-to-check-blas-lapack-linkage-in-numpy-and-scipy
     n_cores = CLI.parse_args().cpus
     with Pool(n_cores) as pool:
-        pool.starmap(main, arguments)
+        pool.starmap(main, arguments, chunksize=1)
