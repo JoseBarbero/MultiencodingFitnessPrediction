@@ -46,7 +46,7 @@ class ColumnExtractor(TransformerMixin):
         return self
 
 def main(enc1, enc2, enc1_X, enc2_X, y, labeled_percentage, model, results_folder):
-    
+    print("THREAD STARTED WITH ID: ", os.getpid())
     # Change regression labels to binary labels above first quartile and below
     original_y = y.copy()
     if is_classifier(model):
