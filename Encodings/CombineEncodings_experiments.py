@@ -326,7 +326,7 @@ if __name__ == "__main__":
     for labeled_percentage in labeled_percentages:
         arguments.extend([(enc1, enc2, encodings_dict[enc1], encodings_dict[enc2], y, labeled_percentage, model, results_folder) for enc1, enc2 in combinations(encoding_names, 2)])
     print(f"* Total number of experiments: {len(arguments)}")
-    print(f"* Number of cores: {sys.argv[2]}")
+    print(f"* Number of cores: {CLI.parse_args().cpus}")
     print(f"* Starting experiments...")
 
     # To avoid unintented multithreading:
