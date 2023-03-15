@@ -108,13 +108,18 @@ def main(enc1, enc2, enc1_X, enc2_X, y, labeled_percentage, model, results_folde
 
         start = time.time()
 
-        # Get a stratifed sample with size = labeled_percentage
-        # This is a bit strange. I am using StratifiedShuffleSplit to get labeled/unlabeled indexes
-        # from enc1_X_train and y_train. 
-        # Then I am using those indexes to get the corresponding instances.
-        # "test_size == labeled_percentage"
-        sss = StratifiedShuffleSplit(n_splits=1, test_size=labeled_percentage)
-        unlabeled_indexes, labeled_indexes = next(sss.split(enc1_X_train, y_train))
+        if is_classifier(model):
+            # Get a stratifed sample with size = labeled_percentage
+            # This is a bit strange. I am using StratifiedShuffleSplit to get labeled/unlabeled indexes
+            # from enc1_X_train and y_train. 
+            # Then I am using those indexes to get the corresponding instances.
+            # "test_size == labeled_percentage"
+            sss = StratifiedShuffleSplit(n_splits=1, test_size=labeled_percentage)
+            unlabeled_indexes, labeled_indexes = next(sss.split(enc1_X_train, y_train))
+        elif is_regressor(model): # Regression can't be stratified bacause values are continuous
+            # Get labeled_percentage random indexed from enc1_X_train
+            labeled_indexes = np.random.choice(len(enc1_X_train), int(labeled_percentage * len(enc1_X_train)), replace=False)
+            unlabeled_indexes = np.setdiff1d(np.arange(len(enc1_X_train)), labeled_indexes)
 
         # Get unlabeled subsets
         enc1_X_train_onlylabeled = np.delete(enc1_X_train, unlabeled_indexes, axis=0)
