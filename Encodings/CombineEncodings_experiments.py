@@ -53,11 +53,6 @@ def main(enc1, enc2, enc1_X, enc2_X, y, labeled_percentage, model, results_folde
     # Change regression labels to binary labels above first quartile and below
     original_y = y.copy()
     
-    # TODO If I include this if, threads stop parallelizing
-    if is_classifier(model):
-        y = np.where(y >= np.percentile(y, 75), 1, 0).ravel()
-    
-
     pred_dict_ct = dict()
     pred_dict_enc1 = dict()
     pred_dict_enc2 = dict()
@@ -297,6 +292,9 @@ if __name__ == "__main__":
     y_file = os.path.join(dataset_folder, dataset+"_y.pkl")
 
     y = pkl.load(open(y_file, 'rb'))#[:1000]
+
+    if is_classifier(model):
+        y = np.where(y >= np.percentile(y, 75), 1, 0).ravel()
 
     encoding_names = ["One_hot", "One_hot_6_bit", "Binary_5_bit",
                       "Hydrophobicity_matrix", "Meiler_parameters", "Acthely_factors",
