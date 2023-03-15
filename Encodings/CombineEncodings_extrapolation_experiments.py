@@ -381,6 +381,6 @@ if __name__ == "__main__":
     # https://stackoverflow.com/questions/19257070/unintended-multithreading-in-python-scikit-learn/42124978#42124978
     # terminal: export OPENBLAS_NUM_THREADS=1
     # To know numpy/scipy config: https://stackoverflow.com/questions/9000164/how-to-check-blas-lapack-linkage-in-numpy-and-scipy
-    n_cores = CLI.parse_args().n_cores
+    n_cores = CLI.parse_args().cpus
     with Pool(n_cores) as pool:
         pool.starmap(main, arguments, chunksize=1)
