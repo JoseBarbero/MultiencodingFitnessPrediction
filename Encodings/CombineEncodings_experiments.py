@@ -17,7 +17,7 @@ from SequenceEncoding import SequenceEncoding
 from sklearn.base import TransformerMixin, clone
 from sklearn.ensemble import RandomForestClassifier, StackingClassifier, StackingRegressor
 from sklearn.exceptions import DataConversionWarning
-from sklearn.linear_model import LogisticRegression, LinearRegression
+from sklearn.linear_model import LogisticRegression, LinearRegression, Ridge
 from sklearn.metrics import roc_auc_score, roc_curve
 from sklearn.model_selection import (StratifiedKFold, StratifiedShuffleSplit,
                                      train_test_split)
@@ -71,7 +71,7 @@ def main(enc1, enc2, enc1_X, enc2_X, y, labeled_percentage, model, results_folde
         os.makedirs(results_folder)
 
     # Touch files if they don't exist so the other processes don't try to run them
-    # Enc1 and Enc2 only need to be run one (but every thread could run them)
+    # Enc1 and Enc2 only need to be run once (but every thread could run them)
     # save_enc1/2 indicates if this thread should run the models and save the results
     run_enc1 = False
     run_enc2 = False
@@ -270,7 +270,8 @@ if __name__ == "__main__":
     # model = LogisticRegression(max_iter=10000, n_jobs=1)
     # model = SVC(kernel='linear', probability=True)
     # model = MLPClassifier()
-    model = LinearRegression(n_jobs=1)
+    # model = LinearRegression(n_jobs=1) # Da problemas de convergencia, mejor Ridge
+    model = Ridge()
     results_folder = f"results/multiview_experiments_{dataset}_{model.__class__.__name__}/"
 
     labeled_percentages = [0.5, 0.25, 0.15, 0.1, 0.05, 0.03, 0.01]
@@ -316,6 +317,11 @@ if __name__ == "__main__":
     print(f"* Total number of experiments: {len(arguments)}")
     print(f"* Number of cores: {sys.argv[2]}")
     print(f"* Starting experiments...")
+
+    # To avoid unintented multithreading:
+    # https://stackoverflow.com/questions/19257070/unintended-multithreading-in-python-scikit-learn/42124978#42124978
+    # terminal: export OPENBLAS_NUM_THREADS=1
+    # To know numpy/scipy config: https://stackoverflow.com/questions/9000164/how-to-check-blas-lapack-linkage-in-numpy-and-scipy
     n_cores = int(sys.argv[2])
     with Pool(n_cores) as pool:
         pool.starmap(main, arguments, chunksize=1)
