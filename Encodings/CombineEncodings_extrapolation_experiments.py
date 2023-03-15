@@ -381,6 +381,7 @@ if __name__ == "__main__":
     print(f"* Number of cores: {CLI.parse_args().cpus}")
     print(f"* Training with variants of length {train_variants} with {len(train_indexes)} samples")
     print(f"* Testing with variants of length {test_variants} with {len(test_indexes)} samples")
+    print(f"* Results will be saved in {results_folder}")
     print(f"* Starting experiments...")
 
     # To avoid unintented multithreading:
