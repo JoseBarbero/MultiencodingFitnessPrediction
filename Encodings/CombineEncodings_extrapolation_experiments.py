@@ -363,7 +363,7 @@ if __name__ == "__main__":
         test_indexes.extend(variants_dict[variant])
 
     results_folder = results_folder.replace("experiments_", f"experiments_trainedwith{train_variants}_testedwith{test_variants}_")
-
+    
     print(f"* Total dict size: {round(sum([enc_X.nbytes for enc_X in encodings_dict.values()])/(1024*1024), 2)} MB | {round(sum([enc_X.nbytes for enc_X in encodings_dict.values()])/(1024*1024*1024), 2)} GB", flush=True)
     arguments = []
     for labeled_percentage in labeled_percentages:
@@ -379,6 +379,8 @@ if __name__ == "__main__":
                             results_folder) for enc1, enc2 in combinations(encoding_names, 2)])
     print(f"* Total number of experiments: {len(arguments)}")
     print(f"* Number of cores: {CLI.parse_args().cpus}")
+    print(f"* Training with variants of length {train_variants} with {len(train_indexes)} samples")
+    print(f"* Testing with variants of length {test_variants} with {len(test_indexes)} samples")
     print(f"* Starting experiments...")
 
     # To avoid unintented multithreading:
