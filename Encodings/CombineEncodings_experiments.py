@@ -281,8 +281,8 @@ if __name__ == "__main__":
     # model = LogisticRegression(max_iter=10000, n_jobs=1)
     # model = SVC(kernel='linear', probability=True)
     # model = MLPClassifier()
-    # model = LinearRegression(n_jobs=1) # Da problemas de convergencia, mejor Ridge
-    model = Ridge()
+    model = LinearRegression(n_jobs=1) # Da problemas de convergencia, mejor Ridge
+    #model = Ridge()
     results_folder = f"results/multiview_experiments_{dataset}_{model.__class__.__name__}/"
 
     labeled_percentages = [0.5, 0.25, 0.15, 0.1, 0.05, 0.03, 0.01]
