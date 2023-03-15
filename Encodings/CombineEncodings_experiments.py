@@ -19,8 +19,7 @@ from sklearn.ensemble import RandomForestClassifier, StackingClassifier, Stackin
 from sklearn.exceptions import DataConversionWarning
 from sklearn.linear_model import LogisticRegression, LinearRegression, Ridge
 from sklearn.metrics import roc_auc_score, roc_curve
-from sklearn.model_selection import (StratifiedKFold, StratifiedShuffleSplit,
-                                     train_test_split)
+from sklearn.model_selection import StratifiedKFold, StratifiedShuffleSplit, train_test_split, KFold
 from sklearn.neural_network import MLPClassifier
 from sklearn.pipeline import make_pipeline
 from sklearn.svm import SVC
@@ -82,9 +81,6 @@ def main(enc1, enc2, enc1_X, enc2_X, y, labeled_percentage, model, results_folde
     if not os.path.exists(enc2_results_file):
         Path(enc2_results_file).touch()
         run_enc2 = True
-        
-    # Stratified kfold
-    skf = StratifiedKFold(n_splits=5, shuffle=True)
 
     # Initialize dicts to store results
     pred_dict_ct = []
@@ -95,7 +91,14 @@ def main(enc1, enc2, enc1_X, enc2_X, y, labeled_percentage, model, results_folde
     pred_dict_st_mean = []
     
     k = 0
-    for train_index, test_index in skf.split(enc1_X, y):
+
+    if is_classifier(model):
+        split_func = StratifiedKFold(n_splits=5, shuffle=True)
+    elif is_regressor(model):
+        # Regression can't be stratified bacause values are continuous
+        split_func = KFold(n_splits=5, shuffle=True)
+
+    for train_index, test_index in split_func.split(enc1_X, y):
         k += 1
 
         enc1_X_train, enc1_X_test = enc1_X[train_index], enc1_X[test_index]
