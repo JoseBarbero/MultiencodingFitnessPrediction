@@ -246,8 +246,6 @@ def main(enc1, enc2, enc1_X_train, enc2_X_train, enc1_X_test, enc2_X_test, y_tra
             pkl.dump(pred_dict_st_mean, handle, protocol=pkl.HIGHEST_PROTOCOL)
 
     # Free memory (it seems threads are waiting taking memory innecesarily)
-    del enc1_X
-    del enc2_X
     del enc1_X_train
     del enc2_X_train
     del enc1_X_test
@@ -362,7 +360,7 @@ if __name__ == "__main__":
     for variant in test_variants:
         test_indexes.extend(variants_dict[variant])
 
-    results_folder = results_folder.replace("experiments_", f"experiments_trainedwith{'_'.join(str(x) for x in train_variants)}_testedwith{'_'.join(str(x) for x in test_variants)}_")
+    results_folder = results_folder.replace("experiments_", f"experiments_trainedwith_{'_'.join(str(x) for x in train_variants)}_testedwith_{'_'.join(str(x) for x in test_variants)}_")
     
     print(f"* Total dict size: {round(sum([enc_X.nbytes for enc_X in encodings_dict.values()])/(1024*1024), 2)} MB | {round(sum([enc_X.nbytes for enc_X in encodings_dict.values()])/(1024*1024*1024), 2)} GB", flush=True)
     arguments = []
