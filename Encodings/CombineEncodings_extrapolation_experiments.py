@@ -108,22 +108,27 @@ def main(enc1, enc2, enc1_X_train, enc2_X_train, enc1_X_test, enc2_X_test, y_tra
             # from enc1_X_train and y_train. 
             # Then I am using those indexes to get the corresponding instances.
             # "test_size == labeled_percentage"
-            sss = StratifiedShuffleSplit(n_splits=1, test_size=labeled_percentage)
-            unlabeled_indexes, labeled_indexes = next(sss.split(enc1_X_train, y_train))
+            if labeled_percentage < 1:
+                sss = StratifiedShuffleSplit(n_splits=1, test_size=labeled_percentage)
+                unlabeled_indexes, labeled_indexes = next(sss.split(enc1_X_train, y_train))
+            # If labeled_percentage == 1, then we don't need to stratify
+            elif labeled_percentage == 1:
+                labeled_indexes = np.arange(len(enc1_X_train))
+                unlabeled_indexes = []
         elif is_regressor(model): # Regression can't be stratified bacause values are continuous
-            # Get labeled_percentage random indexed from enc1_X_train
-            labeled_indexes = np.random.choice(len(enc1_X_train), int(labeled_percentage * len(enc1_X_train)), replace=False)
-            unlabeled_indexes = np.setdiff1d(np.arange(len(enc1_X_train)), labeled_indexes)
+            if labeled_percentage < 1:
+                # Get labeled_percentage random indexed from enc1_X_train
+                labeled_indexes = np.random.choice(len(enc1_X_train), int(labeled_percentage * len(enc1_X_train)), replace=False)
+                unlabeled_indexes = np.setdiff1d(np.arange(len(enc1_X_train)), labeled_indexes)
+            elif labeled_percentage == 1:
+                labeled_indexes = np.arange(len(enc1_X_train))
+                unlabeled_indexes = []
 
         # Get unlabeled subsets
         enc1_X_train_onlylabeled = np.delete(enc1_X_train, unlabeled_indexes, axis=0)
         enc2_X_train_onlylabeled = np.delete(enc2_X_train, unlabeled_indexes, axis=0)
         y_train_onlylabeled = np.delete(y_train, unlabeled_indexes, axis=0)
         
-        # Set unlabeled_indexes to -1 in y
-        y_train_ct = np.copy(y_train)
-        y_train_ct[unlabeled_indexes] = -1
-
         # Get concatenated X
         concat_X_train_onlylabeled = np.concatenate((enc1_X_train_onlylabeled, enc2_X_train_onlylabeled), axis=1)
         concat_X_test = np.concatenate((enc1_X_test, enc2_X_test), axis=1)
@@ -131,6 +136,9 @@ def main(enc1, enc2, enc1_X_train, enc2_X_train, enc1_X_test, enc2_X_test, y_tra
         # Co-training model
         if is_classifier(model):
             if not os.path.exists(ct_results_file):
+                # Set unlabeled_indexes to -1 in y
+                y_train_ct = np.copy(y_train)
+                y_train_ct[unlabeled_indexes] = -1
                 ct = CoTraining(base_estimator=clone(model))
                 ct.fit(enc1_X_train, y_train_ct, X2=enc2_X_train)
                 ct_y_proba = ct.predict_proba(enc1_X_test, X2=enc2_X_test)[:, 1]
@@ -295,7 +303,7 @@ if __name__ == "__main__":
     model = Ridge()
     results_folder = f"results/multiview_extrapolation_experiments_{dataset}_{model.__class__.__name__}/"
 
-    labeled_percentages = [0.5, 0.25, 0.15, 0.1, 0.05, 0.03, 0.01]
+    labeled_percentages = [1, 0.5, 0.25, 0.15, 0.1, 0.05, 0.03, 0.01]
     
     y_file = os.path.join(dataset_folder, dataset+"_y.pkl")
 
