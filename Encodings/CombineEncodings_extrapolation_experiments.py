@@ -263,7 +263,6 @@ def main(enc1, enc2, enc1_X_train, enc2_X_train, enc1_X_test, enc2_X_test, y_tra
     del concat_X_train_onlylabeled
     del concat_X_test
     del y_train
-    del y_train_ct
     del y_train_onlylabeled
     del y_test
     gc.collect()
