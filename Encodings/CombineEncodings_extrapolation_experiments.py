@@ -50,7 +50,7 @@ def main(enc1, enc2, enc1_X_train, enc2_X_train, enc1_X_test, enc2_X_test, y_tra
     
     # Change regression labels to binary labels above first quartile and below
     original_y_train = y_train.copy()
-    original_y_test = y_train.copy()
+    original_y_test = y_test.copy()
     if is_classifier(model):
         y_train = np.where(y_train >= np.percentile(y_train, 75), 1, 0).ravel()
         y_test = np.where(y_test >= np.percentile(y_test, 75), 1, 0).ravel()
