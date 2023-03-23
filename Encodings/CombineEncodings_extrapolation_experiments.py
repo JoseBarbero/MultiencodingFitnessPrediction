@@ -302,7 +302,7 @@ if __name__ == "__main__":
     model = Ridge()
     results_folder = f"results/multiview_extrapolation_experiments_{dataset}_{model.__class__.__name__}/"
 
-    labeled_percentages = [1, 0.5, 0.25, 0.15, 0.1, 0.05, 0.03, 0.01]
+    labeled_percentages = [1, 0.75, 0.5, 0.25, 0.1, 0.05, 0.01]
     
     y_file = os.path.join(dataset_folder, dataset+"_y.pkl")
 
