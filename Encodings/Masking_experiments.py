@@ -174,7 +174,9 @@ if __name__ == "__main__":
                       "Hydrophobicity_matrix", "Meiler_parameters", "Acthely_factors",
                       "PAM250", "BLOSUM62",
                       "Miyazawa_energies", "Micheletti_potentials",
-                      "AESNN3", "ANN4D", "ProtVec"]
+                      "AESNN3", "ANN4D", 
+                    #   "ProtVec"
+                      ]
     
     msa_file = os.path.join(dataset_folder, "aligned_seqs.fasta")
 
