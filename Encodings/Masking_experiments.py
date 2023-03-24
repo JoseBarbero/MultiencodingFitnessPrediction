@@ -55,7 +55,7 @@ def get_sequence_conservation_mask(msa_file, method, ref_pos=0, startcount=0):
                 startcount=startcount, #Position label of first residue in reference sequence
                 verbose=True # Print out progress
                 )
-    return canal.analysis(include=None, method=method)[method].values
+    return canal.analysis(include=None, method=method)[method].values.reshape(1, -1, 1)
 
 
 def main(enc, enc_X, masks, y, labeled_percentage, model, results_folder):
