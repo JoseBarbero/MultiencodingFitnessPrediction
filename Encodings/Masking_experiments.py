@@ -132,10 +132,10 @@ def main(enc, enc_X, masks, y, labeled_percentage, model, results_folder):
         print(f"\tExperiment with {enc} using {labeled_percentage*100}% labeled instances (k={k}) took {time.strftime('%Hh %Mm %Ss', time.gmtime(time.time() - start))}")
 
     # Save dicts to pickle files
-    for results_file, pred_dict in results_files_dict.items():
+    for method, results_file in results_files_dict.items():
         if not os.path.exists(results_file):
             with open(results_file, 'wb') as handle:
-                pkl.dump(pred_dict, handle, protocol=pkl.HIGHEST_PROTOCOL)
+                pkl.dump(pred_dict[method], handle, protocol=pkl.HIGHEST_PROTOCOL)
 
     # Free memory (it seems threads are waiting taking memory innecesarily)
     del enc_X
