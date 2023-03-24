@@ -110,8 +110,9 @@ def main(enc, enc_X, masks, y, labeled_percentage, model, results_folder):
         if not os.path.exists(results_files_dict['unmasked']):
             unmasked_model = clone(model)
             unmasked_X_train = enc_X_train_onlylabeled.reshape(enc_X_train_onlylabeled.shape[0], -1) # Flatten
-            unmasked_model.fit(enc_X_train_onlylabeled, y_train_onlylabeled)
-            unmasked_model_y_proba = unmasked_model.predict(enc_X_test)
+            unmasked_X_test = enc_X_test.reshape(enc_X_test.shape[0], -1) # Flatten
+            unmasked_model.fit(unmasked_X_train, y_train_onlylabeled)
+            unmasked_model_y_proba = unmasked_model.predict(unmasked_X_test)
             pred_dict['unmasked'][k] = {"y_proba": unmasked_model_y_proba, "y_test": y_test, "original_y_test": original_y_test, "train_len": len(y_train_onlylabeled)}
 
         # Model masked
@@ -119,10 +120,12 @@ def main(enc, enc_X, masks, y, labeled_percentage, model, results_folder):
             if not os.path.exists(results_files_dict[mask_name]):
                 masked_model = clone(model)
                 # We mask X_train and X_test by multiplying sequences in X by the mask
-                masked_X_train_onlylabeled = enc_X_train_onlylabeled * mask
-                masked_X_train_onlylabeled = masked_X_train_onlylabeled.reshape(masked_X_train_onlylabeled.shape[0], -1) # Flatten
-                masked_model.fit(enc_X_train_onlylabeled * mask, y_train_onlylabeled)
-                masked_model_y_proba = masked_model.predict(enc_X_test * mask)
+                masked_X_train = enc_X_train_onlylabeled * mask
+                masked_X_train = masked_X_train.reshape(masked_X_train.shape[0], -1) # Flatten
+                masked_X_test = enc_X_test * mask
+                masked_X_test = masked_X_test.reshape(masked_X_test.shape[0], -1) # Flatten
+                masked_model.fit(masked_X_train, y_train_onlylabeled)
+                masked_model_y_proba = masked_model.predict(masked_X_test)
                 pred_dict[mask_name][k] = {"y_proba": masked_model_y_proba, "y_test": y_test, "original_y_test": original_y_test, "train_len": len(y_train_onlylabeled)}
             
         # Print formatted taken time in hours, minutes and seconds
