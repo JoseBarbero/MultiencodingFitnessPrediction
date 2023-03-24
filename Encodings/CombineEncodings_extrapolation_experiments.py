@@ -298,7 +298,7 @@ if __name__ == "__main__":
     dataset_folder = CLI.parse_args().data
     dataset = dataset_folder.split('data/')[-1].split('/')[0]
     
-    # model = LinearRegression(n_jobs=1) # Da problemas de convergencia, mejor Ridge
+    # model = LinearRegression() # Da problemas de convergencia, mejor Ridge
     model = Ridge()
     results_folder = f"results/multiview_extrapolation_experiments_{dataset}_{model.__class__.__name__}/"
 
@@ -306,7 +306,7 @@ if __name__ == "__main__":
     
     y_file = os.path.join(dataset_folder, dataset+"_y.pkl")
 
-    y = pkl.load(open(y_file, 'rb'))#[:1000]
+    y = pkl.load(open(y_file, 'rb'))
 
     encoding_names = ["One_hot", "One_hot_6_bit", "Binary_5_bit",
                       "Hydrophobicity_matrix", "Meiler_parameters", "Acthely_factors",
@@ -378,7 +378,7 @@ if __name__ == "__main__":
                             encodings_dict[enc1][test_indexes],   # enc1_X_test
                             encodings_dict[enc2][test_indexes],   # enc2_X_test
                             y[train_indexes],                     # y_train
-                            y[test_indexes],                      # y_test              
+                            y[test_indexes],                      # y_test
                             labeled_percentage,
                             model,
                             results_folder) for enc1, enc2 in combinations(encoding_names, 2)])

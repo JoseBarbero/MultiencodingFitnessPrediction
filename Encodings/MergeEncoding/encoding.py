@@ -345,7 +345,7 @@ if __name__=="__main__":
         if not os.path.exists(a2m_file) or os.path.exists(os.path.join(data_path, subdir, subdir+'_X_merge.pkl')):
             print('Skipping '+subdir)
         else:
-            data_dict['avgfp'] = {'fasta': fasta_file,
+            data_dict[subdir] = {'fasta': fasta_file,
                             'start_pos': get_start_pos(fasta_file),
                             'csv': csv_file,
                             'a2m': a2m_file,

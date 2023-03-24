@@ -58,7 +58,7 @@ if __name__=="__main__":
         if os.path.exists(sto_file):
             print('Skipping '+subdir)
         else:
-            data_dict['avgfp'] = {'fasta': fasta_file,
+            data_dict[subdir] = {'fasta': fasta_file,
                             'start_pos': get_start_pos(fasta_file),
                             'sto': sto_file,
                             'a2m': a2m_file,
