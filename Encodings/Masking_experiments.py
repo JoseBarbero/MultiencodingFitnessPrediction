@@ -191,9 +191,10 @@ if __name__ == "__main__":
              "shannon": shannon_entropy_mask,
              "lockless": lockless_entropy_mask,
              # Inverted masks could have nan values, so we replace them with 0
-             "inverted_relative": (1 / relative_entropy_mask).fillna(0),
-             "inverted_shannon": (1 / shannon_entropy_mask).fillna(0),
-             "inverted_lockless": (1 / lockless_entropy_mask).fillna(0)}
+            #  "inverted_relative": (1 / relative_entropy_mask).fillna(0),
+            #  "inverted_shannon": (1 / shannon_entropy_mask).fillna(0),
+            #  "inverted_lockless": (1 / lockless_entropy_mask).fillna(0)
+             }
     encodings_dict = dict()
     
     i=0
