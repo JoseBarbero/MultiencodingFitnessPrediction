@@ -109,6 +109,7 @@ def main(enc, enc_X, masks, y, labeled_percentage, model, results_folder):
         # Model unmasked
         if not os.path.exists(results_files_dict['unmasked']):
             unmasked_model = clone(model)
+            unmasked_X_train = enc_X_train_onlylabeled.reshape(enc_X_train_onlylabeled.shape[0], -1) # Flatten
             unmasked_model.fit(enc_X_train_onlylabeled, y_train_onlylabeled)
             unmasked_model_y_proba = unmasked_model.predict(enc_X_test)
             pred_dict['unmasked'][k] = {"y_proba": unmasked_model_y_proba, "y_test": y_test, "original_y_test": original_y_test, "train_len": len(y_train_onlylabeled)}
@@ -118,6 +119,8 @@ def main(enc, enc_X, masks, y, labeled_percentage, model, results_folder):
             if not os.path.exists(results_files_dict[mask_name]):
                 masked_model = clone(model)
                 # We mask X_train and X_test by multiplying sequences in X by the mask
+                masked_X_train_onlylabeled = enc_X_train_onlylabeled * mask
+                masked_X_train_onlylabeled = masked_X_train_onlylabeled.reshape(masked_X_train_onlylabeled.shape[0], -1) # Flatten
                 masked_model.fit(enc_X_train_onlylabeled * mask, y_train_onlylabeled)
                 masked_model_y_proba = masked_model.predict(enc_X_test * mask)
                 pred_dict[mask_name][k] = {"y_proba": masked_model_y_proba, "y_test": y_test, "original_y_test": original_y_test, "train_len": len(y_train_onlylabeled)}
@@ -175,9 +178,16 @@ if __name__ == "__main__":
     
     msa_file = os.path.join(dataset_folder, "aligned_seqs.fasta")
 
-    masks = {"relative": get_sequence_conservation_mask(msa_file, method="relative"),
-             "shannon": get_sequence_conservation_mask(msa_file, method="shannon"),
-             "lockless": get_sequence_conservation_mask(msa_file, method="lockless")}
+    relative_entropy_mask = get_sequence_conservation_mask(msa_file, method="relative")
+    shannon_entropy_mask = get_sequence_conservation_mask(msa_file, method="shannon")
+    lockless_entropy_mask = get_sequence_conservation_mask(msa_file, method="lockless")
+
+    masks = {"relative": relative_entropy_mask,
+             "shannon": shannon_entropy_mask,
+             "lockless": lockless_entropy_mask,
+             "inverted_relative": 1 / relative_entropy_mask,
+             "inverted_shannon": 1 / shannon_entropy_mask,
+             "inverted_lockless": 1 / lockless_entropy_mask}
     encodings_dict = dict()
     
     i=0
@@ -191,7 +201,7 @@ if __name__ == "__main__":
             X_file = os.path.join(dataset_folder, dataset+"_X.pkl")
             X = pkl.load(open(X_file, 'rb'))
             enc_X = np.array([SequenceEncoding(encoding_name).get_encoding(seq) for seq in X])
-            enc_X = enc_X.reshape(enc_X.shape[0], -1)
+            #enc_X = enc_X.reshape(enc_X.shape[0], -1)
             # Save the encoding to a pickle file
             with open(encoding_file, 'wb') as handle:
                 pkl.dump(enc_X, handle, protocol=pkl.HIGHEST_PROTOCOL) 
