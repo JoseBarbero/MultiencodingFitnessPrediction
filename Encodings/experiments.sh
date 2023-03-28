@@ -1,13 +1,9 @@
 # !/bin/bash
-# for f in ../data/*_*/ ; do
-#     model="LogisticRegression"
-#     if [[ -d "./results/multiview_experiments_$(basename -- ${f})_${model}" ]]; then
-#         echo "Dir ./results/multiview_experiments_$(basename -- ${f})_${model} already exists. Skipping."
-#     else
-#         python TestSSLearn_experiments.py $f 25
-#     fi
-# done
 
-#python TestSSLearn_experiments.py ../data/0.6M_BMIMI 25
-python TestSSLearn_experiments.py ../data/BRCA1_HUMAN_Fields2015_y2h 25
-#python TestSSLearn_experiments.py ../data/avgfp 25
+# Run Masking experiments por every dataset directory in ../data/
+for dataset in ../data/*/
+do
+    echo "Running Masking experiments for $dataset"
+    python Masking_experiments.py --data $dataset --cpus 32
+    #python Masking_extrapolation_experiments.py --data $dataset --cpus 32 --trainvariants 1 --testvariants 2
+done
