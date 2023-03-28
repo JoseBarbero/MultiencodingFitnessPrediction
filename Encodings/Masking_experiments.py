@@ -78,7 +78,7 @@ def get_variant_position_mask(wt_seq_file, X, weight=2):
         mask[i, np.where(seq != wt_seq)[0], 0] = weight
     return mask
 
-def main(enc, enc_X, global_masks, individual_masks, wt_seq_file, y, labeled_percentage, model, results_folder):
+def main(enc, enc_X, global_masks, individual_masks, wt_seq, y, labeled_percentage, model, results_folder):
     
     original_y = y.copy()
     
@@ -152,10 +152,9 @@ def main(enc, enc_X, global_masks, individual_masks, wt_seq_file, y, labeled_per
         for mask_name, get_mask in individual_masks.items():
             for weight in [2, 5, 10, 100]:
                 masked_model = clone(model)
-                get_mask(wt_seq_file, enc_X_train, weight=weight)
-                masked_X_train = enc_X_train_onlylabeled * get_mask(wt_seq_file, enc_X_train, weight=weight)
+                masked_X_train = enc_X_train_onlylabeled * get_mask(wt_seq, enc_X_train, weight=weight)
                 masked_X_train = masked_X_train.reshape(masked_X_train.shape[0], -1) # Flatten
-                masked_X_test = enc_X_test * get_mask(wt_seq_file, enc_X_test, weight=weight)
+                masked_X_test = enc_X_test * get_mask(wt_seq, enc_X_test, weight=weight)
                 masked_X_test = masked_X_test.reshape(masked_X_test.shape[0], -1) # Flatten
                 masked_model.fit(masked_X_train, y_train_onlylabeled)
                 masked_model_y_proba = masked_model.predict(masked_X_test)
