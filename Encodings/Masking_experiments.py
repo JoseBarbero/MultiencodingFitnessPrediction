@@ -70,9 +70,8 @@ def get_wt_starting_position(wt_seq_file):
         starting_pos = 0
     return starting_pos
                                                 
-def get_variant_position_mask(wt_seq_file, X, weight=2):
+def get_variant_position_mask(wt_seq, X, weight=2):
     # Creates a mask that masks all positions that are not the same as the wildtype sequence
-    wt_seq = open(wt_seq_file, 'r').read().strip()
     mask = np.zeros(X.shape)
     for i, seq in enumerate(X):
         mask[i, np.where(seq != wt_seq)[0], 0] = weight
