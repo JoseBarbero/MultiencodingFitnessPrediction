@@ -153,17 +153,18 @@ def main(enc, enc_X, global_masks, individual_masks, wt_seq, y, labeled_percenta
                 pred_dict[mask_name][k] = {"y_proba": masked_model_y_proba, "y_test": y_test, "original_y_test": original_y_test, "train_len": len(y_train_onlylabeled)}
         
         # Model with individual masks
-        for mask_name, get_mask in individual_masks.items():
-            for weight in [2, 5, 10, 100]:
-                masked_model = clone(model)
-                masked_X_train = enc_X_train_onlylabeled * get_mask(wt_seq, enc_X_train, weight=weight)
-                masked_X_train = masked_X_train.reshape(masked_X_train.shape[0], -1) # Flatten
-                masked_X_test = enc_X_test * get_mask(wt_seq, enc_X_test, weight=weight)
-                masked_X_test = masked_X_test.reshape(masked_X_test.shape[0], -1) # Flatten
-                masked_model.fit(masked_X_train, y_train_onlylabeled)
-                masked_model_y_proba = masked_model.predict(masked_X_test)
-                pred_dict[f'{mask_name}_{weight}'][k] = {"y_proba": masked_model_y_proba, "y_test": y_test, "original_y_test": original_y_test, "train_len": len(y_train_onlylabeled)}
-                            
+        for mask_name, args in individual_masks.items():
+            get_mask = args[0]
+            weight = args[1]
+            masked_model = clone(model)
+            masked_X_train = enc_X_train_onlylabeled * get_mask(wt_seq, enc_X_train, weight=weight)
+            masked_X_train = masked_X_train.reshape(masked_X_train.shape[0], -1) # Flatten
+            masked_X_test = enc_X_test * get_mask(wt_seq, enc_X_test, weight=weight)
+            masked_X_test = masked_X_test.reshape(masked_X_test.shape[0], -1) # Flatten
+            masked_model.fit(masked_X_train, y_train_onlylabeled)
+            masked_model_y_proba = masked_model.predict(masked_X_test)
+            pred_dict[mask_name][k] = {"y_proba": masked_model_y_proba, "y_test": y_test, "original_y_test": original_y_test, "train_len": len(y_train_onlylabeled)}
+                        
         # Print formatted taken time in hours, minutes and seconds
         print(f"\tExperiment with {enc} using {labeled_percentage*100}% labeled instances (k={k}) took {time.strftime('%Hh %Mm %Ss', time.gmtime(time.time() - start))}")
 
@@ -241,7 +242,10 @@ if __name__ == "__main__":
                     "normalized_lockless": lockless_entropy_mask / np.mean(lockless_entropy_mask),
                     "random": np.random.rand(relative_entropy_mask.shape[0], relative_entropy_mask.shape[1], 1),
                     }
-    individual_masks = {"variants_emphasis": get_variant_position_mask}
+    individual_masks = {"variants_emphasis_weight_2": (get_variant_position_mask, 2),
+                        "variants_emphasis_weight_5": (get_variant_position_mask, 5),
+                        "variants_emphasis_weight_10": (get_variant_position_mask, 10),
+                        "variants_emphasis_weight_10": (get_variant_position_mask, 100)}
     encodings_dict = dict()
     
     i=0
