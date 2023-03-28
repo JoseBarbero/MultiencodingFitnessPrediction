@@ -85,11 +85,16 @@ def main(enc, enc_X, global_masks, individual_masks, wt_seq, y, labeled_percenta
     pred_dict['unmasked'] = dict()
     for mask_name, mask in global_masks.items():
         pred_dict[mask_name] = dict()
+    for mask_name, mask in individual_masks.items():
+        pred_dict[mask_name] = dict()
 
     results_files_dict = dict()
     results_files_dict['unmasked'] = os.path.join(results_folder, f'pred_dict_{enc}_{labeled_percentage}.pickle')
     for mask_name, mask in global_masks.items():
         results_files_dict[mask_name] = os.path.join(results_folder, f'pred_dict_{enc}_masked_{mask_name}_{labeled_percentage}.pickle')
+    for mask_name, mask in individual_masks.items():
+        results_files_dict[mask_name] = os.path.join(results_folder, f'pred_dict_{enc}_masked_{mask_name}_{labeled_percentage}.pickle')
+
 
     # Create results folder if it doesn't exist
     if not os.path.exists(results_folder):
