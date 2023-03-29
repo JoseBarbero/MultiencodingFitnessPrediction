@@ -30,7 +30,7 @@ from sslearn.wrapper import CoTraining
 from sklearn.base import is_classifier, is_regressor
 from pycanal import Canal
 import mkl
-from scipy.ndimage import gaussian_filter1d
+from scipy.ndimage import gaussian_filter
 mkl.set_num_threads(1)
 
 import argparse
@@ -70,11 +70,15 @@ def get_wt_starting_position(wt_seq_file):
         starting_pos = 0
     return starting_pos
                                                 
-def get_variant_position_mask(wt_seq_encoded, X, weight=2):
+def get_variant_position_mask(wt_seq_encoded, X, weight=2, gaussian_filter=False, gaussian_filter_sigma=1):
     # Creates a mask that masks all positions that are not the same as the wildtype sequence
     mask = np.ones(X.shape)
     for i, seq in enumerate(X):
         mask[i, np.where(seq != wt_seq_encoded)[0], :] = weight
+    if gaussian_filter:
+        for i, seq in enumerate(mask):
+            mask[i, :, :] = gaussian_filter(seq, sigma=gaussian_filter_sigma)
+
     return mask
 
 def main(enc, enc_X, global_masks, individual_masks, wt_seq, y, labeled_percentage, model, results_folder):
@@ -156,8 +160,12 @@ def main(enc, enc_X, global_masks, individual_masks, wt_seq, y, labeled_percenta
         for mask_name, args in individual_masks.items():
             get_mask = args[0]
             weight = args[1]
+            if args[2]:
+                gaussian_filter = args[2]
+            else:
+                gaussian_filter = False
             masked_model = clone(model)
-            masked_X_train = enc_X_train_onlylabeled * get_mask(wt_seq, enc_X_train_onlylabeled, weight=weight)
+            masked_X_train = enc_X_train_onlylabeled * get_mask(wt_seq, enc_X_train_onlylabeled, weight=weight, gaussian_filter=gaussian_filter)
             masked_X_train = masked_X_train.reshape(masked_X_train.shape[0], -1) # Flatten
             masked_X_test = enc_X_test * get_mask(wt_seq, enc_X_test, weight=weight)
             masked_X_test = masked_X_test.reshape(masked_X_test.shape[0], -1) # Flatten
@@ -245,7 +253,11 @@ if __name__ == "__main__":
     individual_masks = {"variants_emphasis_weight_2": (get_variant_position_mask, 2),
                         "variants_emphasis_weight_5": (get_variant_position_mask, 5),
                         "variants_emphasis_weight_10": (get_variant_position_mask, 10),
-                        "variants_emphasis_weight_100": (get_variant_position_mask, 100)}
+                        "variants_emphasis_weight_100": (get_variant_position_mask, 100),
+                        "variants_gaussian_emphasis_weight_2": (get_variant_position_mask, 2, True),
+                        "variants_gaussian_emphasis_weight_5": (get_variant_position_mask, 5, True),
+                        "variants_gaussian_emphasis_weight_10": (get_variant_position_mask, 10, True),
+                        "variants_gaussian_emphasis_weight_100": (get_variant_position_mask, 100, True)}
     encodings_dict = dict()
     wt_encodings_dict = dict()
     i=0
