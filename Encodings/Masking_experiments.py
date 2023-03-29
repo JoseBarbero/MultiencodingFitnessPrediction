@@ -160,7 +160,7 @@ def main(enc, enc_X, global_masks, individual_masks, wt_seq, y, labeled_percenta
         for mask_name, args in individual_masks.items():
             get_mask = args[0]
             weight = args[1]
-            if args[2]:
+            if len(args) > 2:
                 gaussian_filter = args[2]
             else:
                 gaussian_filter = False
