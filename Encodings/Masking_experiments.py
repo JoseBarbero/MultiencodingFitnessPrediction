@@ -165,7 +165,7 @@ def main(enc, enc_X, global_masks, individual_masks, wt_seq, y, labeled_percenta
             else:
                 apply_gaussian_filter = False
             masked_model = clone(model)
-            masked_X_train = enc_X_train_onlylabeled * get_mask(wt_seq, enc_X_train_onlylabeled, weight=weight, gaussian_filter=apply_gaussian_filter)
+            masked_X_train = enc_X_train_onlylabeled * get_mask(wt_seq, enc_X_train_onlylabeled, weight=weight, apply_gaussian_filter=apply_gaussian_filter)
             masked_X_train = masked_X_train.reshape(masked_X_train.shape[0], -1) # Flatten
             masked_X_test = enc_X_test * get_mask(wt_seq, enc_X_test, weight=weight)
             masked_X_test = masked_X_test.reshape(masked_X_test.shape[0], -1) # Flatten
