@@ -70,11 +70,11 @@ def get_wt_starting_position(wt_seq_file):
         starting_pos = 0
     return starting_pos
                                                 
-def get_variant_position_mask(wt_seq, X, weight=2):
+def get_variant_position_mask(wt_seq_encoded, X, weight=2):
     # Creates a mask that masks all positions that are not the same as the wildtype sequence
     mask = np.zeros(X.shape)
     for i, seq in enumerate(X):
-        mask[i, np.where(seq != wt_seq)[0], 0] = weight
+        mask[i, np.where(seq != wt_seq_encoded)[0], :] = weight
     return mask
 
 def main(enc, enc_X, global_masks, individual_masks, wt_seq, y, labeled_percentage, model, results_folder):
@@ -245,13 +245,14 @@ if __name__ == "__main__":
     individual_masks = {"variants_emphasis_weight_2": (get_variant_position_mask, 2),
                         "variants_emphasis_weight_5": (get_variant_position_mask, 5),
                         "variants_emphasis_weight_10": (get_variant_position_mask, 10),
-                        "variants_emphasis_weight_10": (get_variant_position_mask, 100)}
+                        "variants_emphasis_weight_100": (get_variant_position_mask, 100)}
     encodings_dict = dict()
-    
+    wt_encodings_dict = dict()
     i=0
     for encoding_name in encoding_names:
         start = time.time()
         encoding_file = os.path.join(dataset_folder, f'X_{encoding_name}.pkl')
+        encoding_wt_file =  os.path.join(dataset_folder, f'wt_{encoding_name}.pkl')
         i+=1
         # If file does not exist, encode
         if not os.path.exists(encoding_file):
@@ -267,12 +268,21 @@ if __name__ == "__main__":
         else:
             enc_X = pkl.load(open(encoding_file, 'rb'))
         
+        if not os.path.exists(encoding_wt_file):
+            # Encoded wt
+            enc_wt = SequenceEncoding(encoding_name).get_encoding(wt_seq)
+            with open(encoding_wt_file, 'wb') as handle:
+                pkl.dump(enc_wt, handle, protocol=pkl.HIGHEST_PROTOCOL)
+        else:
+            enc_wt = pkl.load(open(encoding_wt_file, 'rb'))
+        
         encodings_dict[encoding_name] = enc_X
+        wt_encodings_dict[encoding_name] = enc_wt
     
     print(f"* Total dict size: {round(sum([enc_X.nbytes for enc_X in encodings_dict.values()])/(1024*1024), 2)} MB | {round(sum([enc_X.nbytes for enc_X in encodings_dict.values()])/(1024*1024*1024), 2)} GB", flush=True)
     arguments = []
     for labeled_percentage in labeled_percentages:
-        arguments.extend([(enc, encodings_dict[enc], global_masks, individual_masks, wt_seq, y.copy(), labeled_percentage, clone(model), results_folder) for enc in encoding_names])
+        arguments.extend([(enc, encodings_dict[enc], global_masks, individual_masks, wt_encodings_dict[enc], y.copy(), labeled_percentage, clone(model), results_folder) for enc in encoding_names])
     print(f"* Total number of experiments: {len(arguments)}")
     print(f"* Number of cores: {CLI.parse_args().cpus}")
     print(f"* Starting experiments...")
