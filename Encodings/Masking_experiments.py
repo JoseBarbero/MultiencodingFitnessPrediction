@@ -70,12 +70,12 @@ def get_wt_starting_position(wt_seq_file):
         starting_pos = 0
     return starting_pos
                                                 
-def get_variant_position_mask(wt_seq_encoded, X, weight=2, gaussian_filter=False, gaussian_filter_sigma=1):
+def get_variant_position_mask(wt_seq_encoded, X, weight=2, apply_gaussian_filter=False, gaussian_filter_sigma=1):
     # Creates a mask that masks all positions that are not the same as the wildtype sequence
     mask = np.ones(X.shape)
     for i, seq in enumerate(X):
         mask[i, np.where(seq != wt_seq_encoded)[0], :] = weight
-    if gaussian_filter:
+    if apply_gaussian_filter:
         for i, seq in enumerate(mask):
             mask[i, :, :] = gaussian_filter(seq, sigma=gaussian_filter_sigma)
 
@@ -161,11 +161,11 @@ def main(enc, enc_X, global_masks, individual_masks, wt_seq, y, labeled_percenta
             get_mask = args[0]
             weight = args[1]
             if len(args) > 2:
-                gaussian_filter = args[2]
+                apply_gaussian_filter = args[2]
             else:
-                gaussian_filter = False
+                apply_gaussian_filter = False
             masked_model = clone(model)
-            masked_X_train = enc_X_train_onlylabeled * get_mask(wt_seq, enc_X_train_onlylabeled, weight=weight, gaussian_filter=gaussian_filter)
+            masked_X_train = enc_X_train_onlylabeled * get_mask(wt_seq, enc_X_train_onlylabeled, weight=weight, gaussian_filter=apply_gaussian_filter)
             masked_X_train = masked_X_train.reshape(masked_X_train.shape[0], -1) # Flatten
             masked_X_test = enc_X_test * get_mask(wt_seq, enc_X_test, weight=weight)
             masked_X_test = masked_X_test.reshape(masked_X_test.shape[0], -1) # Flatten
