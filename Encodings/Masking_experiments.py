@@ -84,20 +84,26 @@ def get_variant_position_mask(wt_seq_encoded, X, weight=2, apply_gaussian_filter
 def main(enc, enc_X, global_masks, individual_masks, wt_seq, y, labeled_percentage, model, results_folder):
     
     original_y = y.copy()
-    
+
+    # Initialize prediction dictionary    
     pred_dict = dict()
     pred_dict['unmasked'] = dict()
     for mask_name, mask in global_masks.items():
         pred_dict[mask_name] = dict()
     for mask_name, mask in individual_masks.items():
         pred_dict[mask_name] = dict()
+        for global_mask_name, global_mask in global_masks.items():
+            pred_dict[f'{mask_name}_{global_mask_name}'] = dict()
 
+    # Initialize results files dictionary
     results_files_dict = dict()
     results_files_dict['unmasked'] = os.path.join(results_folder, f'pred_dict_{enc}_{labeled_percentage}.pickle')
     for mask_name, mask in global_masks.items():
         results_files_dict[mask_name] = os.path.join(results_folder, f'pred_dict_{enc}_masked_{mask_name}_{labeled_percentage}.pickle')
     for mask_name, mask in individual_masks.items():
         results_files_dict[mask_name] = os.path.join(results_folder, f'pred_dict_{enc}_masked_{mask_name}_{labeled_percentage}.pickle')
+        for global_mask_name, global_mask in global_masks.items():
+            results_files_dict[f'{mask_name}_{global_mask_name}'] = os.path.join(results_folder, f'pred_dict_{enc}_double_masked_{mask_name}&{global_mask_name}_{labeled_percentage}.pickle')
 
 
     # Create results folder if it doesn't exist
@@ -172,7 +178,28 @@ def main(enc, enc_X, global_masks, individual_masks, wt_seq, y, labeled_percenta
             masked_model.fit(masked_X_train, y_train_onlylabeled)
             masked_model_y_proba = masked_model.predict(masked_X_test)
             pred_dict[mask_name][k] = {"y_proba": masked_model_y_proba, "y_test": y_test, "original_y_test": original_y_test, "train_len": len(y_train_onlylabeled)}
-                        
+
+        # Combine individual and global masks
+        for mask_name, args in individual_masks.items():
+            get_mask = args[0]
+            weight = args[1]
+            if len(args) > 2:
+                apply_gaussian_filter = args[2]
+            else:
+                apply_gaussian_filter = False
+            masked_model = clone(model)
+            masked_X_train = enc_X_train_onlylabeled * get_mask(wt_seq, enc_X_train_onlylabeled, weight=weight, apply_gaussian_filter=apply_gaussian_filter)
+            masked_X_test = enc_X_test * get_mask(wt_seq, enc_X_test, weight=weight)
+            for global_mask_name, global_mask in global_masks.items():
+                double_masked_model = clone(model)
+                double_masked_X_train = masked_X_train * global_mask
+                double_masked_X_test = masked_X_test * global_mask
+                double_masked_X_train = double_masked_X_train.reshape(double_masked_X_train.shape[0], -1)
+                double_masked_X_test = double_masked_X_test.reshape(double_masked_X_test.shape[0], -1)
+                double_masked_model.fit(double_masked_X_train, y_train_onlylabeled)
+                double_masked_model_y_proba = double_masked_model.predict(double_masked_X_test)
+                pred_dict[f"{mask_name}_{global_mask_name}"][k] = {"y_proba": double_masked_model_y_proba, "y_test": y_test, "original_y_test": original_y_test, "train_len": len(y_train_onlylabeled)}
+
         # Print formatted taken time in hours, minutes and seconds
         print(f"\tExperiment with {enc} using {labeled_percentage*100}% labeled instances (k={k}) took {time.strftime('%Hh %Mm %Ss', time.gmtime(time.time() - start))}")
 
@@ -238,9 +265,22 @@ if __name__ == "__main__":
     shannon_entropy_mask = get_sequence_conservation_mask(msa_file, method="shannon")
     lockless_entropy_mask = get_sequence_conservation_mask(msa_file, method="lockless")
 
-    global_masks = {"relative": relative_entropy_mask,
+    global_masks = {
+                    "relative": relative_entropy_mask,
+                    "relativex2": relative_entropy_mask*2,
+                    "relativex10": relative_entropy_mask*10,
+                    "relativex0.5": relative_entropy_mask*0.5,
+                    "relativex0.1": relative_entropy_mask*0.1,
                     "shannon": shannon_entropy_mask,
+                    "shannonx2": shannon_entropy_mask*2,
+                    "shannonx10": shannon_entropy_mask*10,
+                    "shannonx0.5": shannon_entropy_mask*0.5,
+                    "shannonx0.1": shannon_entropy_mask*0.1,
                     "lockless": lockless_entropy_mask,
+                    "locklessx2": lockless_entropy_mask*2,
+                    "locklessx10": lockless_entropy_mask*10,
+                    "locklessx0.5": lockless_entropy_mask*0.5,
+                    "locklessx0.1": lockless_entropy_mask*0.1,
                     "1-shannon": 1 - shannon_entropy_mask,
                     "inverted_relative": (1 / 1 + relative_entropy_mask),
                     "inverted_shannon": (1 / 1 + shannon_entropy_mask),
@@ -250,14 +290,19 @@ if __name__ == "__main__":
                     "normalized_lockless": lockless_entropy_mask / np.mean(lockless_entropy_mask),
                     "random": np.random.rand(relative_entropy_mask.shape[0], relative_entropy_mask.shape[1], 1),
                     }
-    individual_masks = {"variants_emphasis_weight_2": (get_variant_position_mask, 2),
+
+    individual_masks = {"variants_emphasis_weight_0.25": (get_variant_position_mask, 0.25),
+                        "variants_emphasis_weight_0.5": (get_variant_position_mask, 0.5),
+                        "variants_emphasis_weight_0.75": (get_variant_position_mask, 0.75),
+                        "variants_emphasis_weight_1.5": (get_variant_position_mask, 1.5),
+                        "variants_emphasis_weight_2": (get_variant_position_mask, 2),
                         "variants_emphasis_weight_5": (get_variant_position_mask, 5),
-                        "variants_emphasis_weight_10": (get_variant_position_mask, 10),
-                        "variants_emphasis_weight_100": (get_variant_position_mask, 100),
+                        "variants_gaussian_emphasis_weight_0.25": (get_variant_position_mask, 0.25, True),
+                        "variants_gaussian_emphasis_weight_0.5": (get_variant_position_mask, 0.5, True),
+                        "variants_gaussian_emphasis_weight_0.75": (get_variant_position_mask, 0.75, True),
+                        "variants_gaussian_emphasis_weight_1.5": (get_variant_position_mask, 1.5, True),
                         "variants_gaussian_emphasis_weight_2": (get_variant_position_mask, 2, True),
-                        "variants_gaussian_emphasis_weight_5": (get_variant_position_mask, 5, True),
-                        "variants_gaussian_emphasis_weight_10": (get_variant_position_mask, 10, True),
-                        "variants_gaussian_emphasis_weight_100": (get_variant_position_mask, 100, True)}
+                        "variants_gaussian_emphasis_weight_5": (get_variant_position_mask, 5, True)}
     encodings_dict = dict()
     wt_encodings_dict = dict()
     i=0
