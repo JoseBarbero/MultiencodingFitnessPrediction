@@ -23,6 +23,7 @@ from sklearn.metrics import roc_auc_score, roc_curve
 from sklearn.model_selection import StratifiedKFold, StratifiedShuffleSplit, train_test_split, KFold
 from sklearn.neural_network import MLPClassifier
 from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import StandardScaler
 from sklearn.svm import SVC
 from sklearn.tree import DecisionTreeClassifier
 from sslearn.base import OneVsRestSSLClassifier
@@ -223,6 +224,7 @@ def main(enc, enc_X, global_masks, individual_masks, wt_seq, y, labeled_percenta
 
 if __name__ == "__main__":
 
+    # Parse arguments
     CLI=argparse.ArgumentParser()
     CLI.add_argument(
         "--data", 
@@ -234,14 +236,25 @@ if __name__ == "__main__":
         default=32,
     )
     
+    # Parse the command line folder to variables
     dataset_folder = CLI.parse_args().data
     dataset = dataset_folder.split('data/')[-1].split('/')[0]
     
-    model = Ridge()
-    results_folder = f"results/masking_experiments_{dataset}_{model.__class__.__name__}/"
+    # Create model
+    model = make_pipeline(StandardScaler(), Ridge())
+    #model = Ridge()
+    
+    if hasattr(model, 'steps'):
+        model_name = '_'.join([submodel.__class__.__name__ for submodel in model])
+    else:
+        model_name = model.__class__.__name__
+
+    # Create results folder
+    results_folder = f"results/masking_experiments_{dataset}_{model_name}/"
 
     labeled_percentages = [1, 0.75, 0.5, 0.25, 0.1, 0.05, 0.03, 0.01]
-    
+
+    # Load y data
     y_file = os.path.join(dataset_folder, dataset+"_y.pkl")
     y = pkl.load(open(y_file, 'rb'))
     # If y is a list, convert it to a numpy array
@@ -257,6 +270,7 @@ if __name__ == "__main__":
                     #   "ProtVec"   # ProtVec is problematic because it uses different lenght (233 instead of 235 because it works by 3-mers)
                       ]
     
+    # Load files related to conservation values
     msa_file = os.path.join(dataset_folder, "aligned_seqs.fasta")
     wt_seq_file = os.path.join(dataset_folder, dataset+"_wt.fasta")
     wt_seq = SeqIO.read(wt_seq_file, "fasta").seq
@@ -265,6 +279,7 @@ if __name__ == "__main__":
     shannon_entropy_mask = get_sequence_conservation_mask(msa_file, method="shannon")
     lockless_entropy_mask = get_sequence_conservation_mask(msa_file, method="lockless")
 
+    # Create global masks: all sequences are masked with the same mask
     global_masks = {
                     "relative": relative_entropy_mask,
                     "relativex2": relative_entropy_mask*2,
@@ -291,6 +306,7 @@ if __name__ == "__main__":
                     "random": np.random.rand(relative_entropy_mask.shape[0], relative_entropy_mask.shape[1], 1),
                     }
 
+    # Create individual masks: each sequence has a different mask
     individual_masks = {"variants_emphasis_weight_0.25": (get_variant_position_mask, 0.25),
                         "variants_emphasis_weight_0.5": (get_variant_position_mask, 0.5),
                         "variants_emphasis_weight_0.75": (get_variant_position_mask, 0.75),
@@ -303,6 +319,8 @@ if __name__ == "__main__":
                         "variants_gaussian_emphasis_weight_1.5": (get_variant_position_mask, 1.5, True),
                         "variants_gaussian_emphasis_weight_2": (get_variant_position_mask, 2, True),
                         "variants_gaussian_emphasis_weight_5": (get_variant_position_mask, 5, True)}
+    
+    # Load X data (encode if necessary)
     encodings_dict = dict()
     wt_encodings_dict = dict()
     i=0
@@ -336,6 +354,7 @@ if __name__ == "__main__":
         encodings_dict[encoding_name] = enc_X
         wt_encodings_dict[encoding_name] = enc_wt
     
+    # Print some info
     print(f"* Total dict size: {round(sum([enc_X.nbytes for enc_X in encodings_dict.values()])/(1024*1024), 2)} MB | {round(sum([enc_X.nbytes for enc_X in encodings_dict.values()])/(1024*1024*1024), 2)} GB", flush=True)
     arguments = []
     for labeled_percentage in labeled_percentages:
