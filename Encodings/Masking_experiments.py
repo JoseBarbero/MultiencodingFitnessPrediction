@@ -11,9 +11,9 @@ from itertools import combinations
 from multiprocessing import Pool
 from pathlib import Path
 
-from Bio import SeqIO
 import matplotlib.pyplot as plt
 import numpy as np
+from Bio import SeqIO
 from SequenceEncoding import SequenceEncoding
 from sklearn.base import TransformerMixin, clone
 from sklearn.ensemble import RandomForestClassifier, StackingClassifier, StackingRegressor
@@ -86,7 +86,7 @@ def main(enc, enc_X, global_masks, individual_masks, wt_seq, y, labeled_percenta
     
     original_y = y.copy()
 
-    # Initialize prediction dictionary    
+    # Initialize prediction dictionary
     pred_dict = dict()
     pred_dict['unmasked'] = dict()
     for mask_name, mask in global_masks.items():
@@ -358,7 +358,15 @@ if __name__ == "__main__":
     print(f"* Total dict size: {round(sum([enc_X.nbytes for enc_X in encodings_dict.values()])/(1024*1024), 2)} MB | {round(sum([enc_X.nbytes for enc_X in encodings_dict.values()])/(1024*1024*1024), 2)} GB", flush=True)
     arguments = []
     for labeled_percentage in labeled_percentages:
-        arguments.extend([(enc, encodings_dict[enc], global_masks, individual_masks, wt_encodings_dict[enc], y.copy(), labeled_percentage, clone(model), results_folder) for enc in encoding_names])
+        arguments.extend([(enc,
+                           encodings_dict[enc],
+                           global_masks,
+                           individual_masks,
+                           wt_encodings_dict[enc],
+                           y.copy(),
+                           labeled_percentage,
+                           clone(model),
+                           results_folder) for enc in encoding_names])
     print(f"* Total number of experiments: {len(arguments)}")
     print(f"* Number of cores: {CLI.parse_args().cpus}")
     print(f"* Starting experiments...")

@@ -16,7 +16,7 @@ import numpy as np
 from SequenceEncoding import SequenceEncoding
 from Bio import SeqIO
 from sklearn.base import TransformerMixin, clone
-from sklearn.ensemble import RandomForestClassifier, StackingClassifier, StackingRegressor
+from sklearn.ensemble import RandomForestClassifier, StackingClassifier, StackingRegressor, RandomForestRegressor
 from sklearn.exceptions import DataConversionWarning
 from sklearn.linear_model import LogisticRegression, LinearRegression, Ridge
 from sklearn.metrics import roc_auc_score, roc_curve
@@ -25,10 +25,11 @@ from sklearn.model_selection import (StratifiedKFold, StratifiedShuffleSplit,
 from sklearn.neural_network import MLPClassifier
 from sklearn.pipeline import make_pipeline
 from sklearn.svm import SVC
-from sklearn.tree import DecisionTreeClassifier
+from sklearn.tree import DecisionTreeClassifier, DecisionTreeRegressor
 from sslearn.base import OneVsRestSSLClassifier
 from sslearn.wrapper import CoTraining
 from sklearn.base import is_classifier, is_regressor
+from sklearn.preprocessing import StandardScaler
 
 import argparse
 
@@ -129,6 +130,12 @@ def main(enc1, enc2, enc1_X_train, enc2_X_train, enc1_X_test, enc2_X_test, y_tra
         enc2_X_train_onlylabeled = np.delete(enc2_X_train, unlabeled_indexes, axis=0)
         y_train_onlylabeled = np.delete(y_train, unlabeled_indexes, axis=0)
         
+        # Flatten 
+        enc1_X_train_onlylabeled = enc1_X_train_onlylabeled.reshape(enc1_X_train_onlylabeled.shape[0], -1)
+        enc2_X_train_onlylabeled = enc2_X_train_onlylabeled.reshape(enc2_X_train_onlylabeled.shape[0], -1)
+        enc1_X_test = enc1_X_test.reshape(enc1_X_test.shape[0], -1)
+        enc2_X_test = enc2_X_test.reshape(enc2_X_test.shape[0], -1)
+    
         # Get concatenated X
         concat_X_train_onlylabeled = np.concatenate((enc1_X_train_onlylabeled, enc2_X_train_onlylabeled), axis=1)
         concat_X_test = np.concatenate((enc1_X_test, enc2_X_test), axis=1)
@@ -194,7 +201,7 @@ def main(enc1, enc2, enc1_X_train, enc2_X_train, enc1_X_test, enc2_X_test, y_tra
                 stacking_model.fit(concat_X_train_onlylabeled, y_train_onlylabeled)
                 stacking_model_y_proba = stacking_model.predict_proba(concat_X_test)[:, 1]
             elif is_regressor(model):
-                stacking_model = StackingRegressor(estimators=stacking_estimators, cv=cv_stacking_k)
+                stacking_model = StackingRegressor(estimators=stacking_estimators, cv=cv_stacking_k, final_estimator=Ridge())
                 stacking_model.fit(concat_X_train_onlylabeled, y_train_onlylabeled)
                 stacking_model_y_proba = stacking_model.predict(concat_X_test)
             else:
@@ -283,6 +290,14 @@ if __name__ == "__main__":
         default=32,
     )
     CLI.add_argument(
+        "--model", 
+        type=str
+    )
+    CLI.add_argument(
+        "--normalize", 
+        type=str
+    )
+    CLI.add_argument(
         "--trainvariants",  
         nargs="*",  
         type=int,
@@ -298,10 +313,25 @@ if __name__ == "__main__":
     dataset_folder = CLI.parse_args().data
     dataset = dataset_folder.split('data/')[-1].split('/')[0]
     
-    # model = LinearRegression() # Da problemas de convergencia, mejor Ridge
-    model = Ridge()
-    results_folder = f"results/multiview_extrapolation_experiments_{dataset}_{model.__class__.__name__}/"
+    # Create model
+    if CLI.parse_args().model == "DecisionTreeRegressor":
+        model = DecisionTreeRegressor()
+    elif CLI.parse_args().model == "Ridge":
+        model = Ridge()
+    else:
+        raise ValueError("Model not supported")
+    
+    if CLI.parse_args().normalize == "True":
+        model = make_pipeline(StandardScaler(), model)
+    
+    if hasattr(model, 'steps'):
+        model_name = '_'.join([submodel.__class__.__name__ for submodel in model])
+    else:
+        model_name = model.__class__.__name__
 
+    # Create results folder
+    experiments_id = f"multiview_extrapolation_experiments_{dataset}_{model_name}"
+    
     labeled_percentages = [1, 0.75, 0.5, 0.25, 0.1, 0.05, 0.01]
     
     y_file = os.path.join(dataset_folder, dataset+"_y.pkl")
@@ -367,7 +397,8 @@ if __name__ == "__main__":
     for variant in test_variants:
         test_indexes.extend(variants_dict[variant])
 
-    results_folder = results_folder.replace("experiments_", f"experiments_trainedwith_{'_'.join(str(x) for x in train_variants)}_testedwith_{'_'.join(str(x) for x in test_variants)}_")
+    experiments_id = experiments_id.replace("experiments_", f"experiments_trainedwith_{'_'.join(str(x) for x in train_variants)}_testedwith_{'_'.join(str(x) for x in test_variants)}_")
+    results_folder = os.path.join("results", experiments_id)
     
     print(f"* Total dict size: {round(sum([enc_X.nbytes for enc_X in encodings_dict.values()])/(1024*1024), 2)} MB | {round(sum([enc_X.nbytes for enc_X in encodings_dict.values()])/(1024*1024*1024), 2)} GB", flush=True)
     arguments = []

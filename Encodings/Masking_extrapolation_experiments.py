@@ -23,6 +23,7 @@ from sklearn.metrics import roc_auc_score, roc_curve
 from sklearn.model_selection import StratifiedKFold, StratifiedShuffleSplit, train_test_split, KFold
 from sklearn.neural_network import MLPClassifier
 from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import StandardScaler
 from sklearn.svm import SVC
 from sklearn.tree import DecisionTreeClassifier
 from sslearn.base import OneVsRestSSLClassifier
@@ -30,7 +31,7 @@ from sslearn.wrapper import CoTraining
 from sklearn.base import is_classifier, is_regressor
 from pycanal import Canal
 import mkl
-from scipy.ndimage import gaussian_filter1d
+from scipy.ndimage import gaussian_filter
 mkl.set_num_threads(1)
 
 import argparse
@@ -70,34 +71,53 @@ def get_wt_starting_position(wt_seq_file):
         starting_pos = 0
     return starting_pos
                                                 
-def get_variant_position_mask(wt_seq_file, X,):
+def get_variant_position_mask(wt_seq_encoded, X, weight=2, apply_gaussian_filter=False, gaussian_filter_sigma=1):
     # Creates a mask that masks all positions that are not the same as the wildtype sequence
-    wt_seq = open(wt_seq_file, 'r').read().strip()
-    mask = np.zeros(X.shape)
+    mask = np.ones(X.shape)
     for i, seq in enumerate(X):
-        mask[i, np.where(seq != wt_seq)[0], 0] = 1
+        mask[i, np.where(seq != wt_seq_encoded)[0], :] = weight
+    if apply_gaussian_filter:
+        for i, seq in enumerate(mask):
+            mask[i, :, :] = gaussian_filter(seq, sigma=gaussian_filter_sigma)
+
     return mask
 
-def main(enc, enc_X_train, enc_X_test, masks, y_train, y_test, labeled_percentage, model, results_folder):
+def main(enc, enc_X_train, enc_X_test, global_masks, individual_masks, after_masks, wt_seq, y_train, y_test, labeled_percentage, model, results_folder):
     
     original_y_train = y_train.copy()
     original_y_test = y_test.copy()
     
+    # Initialize prediction dictionary
     pred_dict = dict()
     pred_dict['unmasked'] = dict()
-    for mask_name, mask in masks.items():
+    for mask_name, mask in global_masks.items():
         pred_dict[mask_name] = dict()
+        for after_mask_name, after_mask in after_masks.items():
+            pred_dict[f'{mask_name}_{after_mask_name}'] = dict()
+    for mask_name, mask in individual_masks.items():
+        pred_dict[mask_name] = dict()
+        for global_mask_name, global_mask in global_masks.items():
+            pred_dict[f'{mask_name}_{global_mask_name}'] = dict()
+        
 
+    # Initialize results files dictionary
     results_files_dict = dict()
     results_files_dict['unmasked'] = os.path.join(results_folder, f'pred_dict_{enc}_{labeled_percentage}.pickle')
-    for mask_name, mask in masks.items():
+    for mask_name, mask in global_masks.items():
         results_files_dict[mask_name] = os.path.join(results_folder, f'pred_dict_{enc}_masked_{mask_name}_{labeled_percentage}.pickle')
+        for after_mask_name, after_mask in after_masks.items():
+            results_files_dict[f'{mask_name}_{after_mask_name}'] = os.path.join(results_folder, f'pred_dict_{enc}_masked_{mask_name}_and_{after_mask_name}_{labeled_percentage}.pickle')
+    for mask_name, mask in individual_masks.items():
+        results_files_dict[mask_name] = os.path.join(results_folder, f'pred_dict_{enc}_masked_{mask_name}_{labeled_percentage}.pickle')
+        for global_mask_name, global_mask in global_masks.items():
+            results_files_dict[f'{mask_name}_{global_mask_name}'] = os.path.join(results_folder, f'pred_dict_{enc}_double_masked_{mask_name}_and_{global_mask_name}_{labeled_percentage}.pickle')
+
 
     # Create results folder if it doesn't exist
     if not os.path.exists(results_folder):
         os.makedirs(results_folder)
     
-    n_splits = 5
+    n_splits = 1
     
     # We can't use a classic skf split because the train and test are defined by the number of variants
     # So we just run it n_splits times
@@ -122,16 +142,15 @@ def main(enc, enc_X_train, enc_X_test, masks, y_train, y_test, labeled_percentag
         y_train_ct[unlabeled_indexes] = -1
 
         # Model unmasked
-        if not os.path.exists(results_files_dict['unmasked']):
-            unmasked_model = clone(model)
-            unmasked_X_train = enc_X_train_onlylabeled.reshape(enc_X_train_onlylabeled.shape[0], -1) # Flatten
-            unmasked_X_test = enc_X_test.reshape(enc_X_test.shape[0], -1) # Flatten
-            unmasked_model.fit(unmasked_X_train, y_train_onlylabeled)
-            unmasked_model_y_proba = unmasked_model.predict(unmasked_X_test)
-            pred_dict['unmasked'][k] = {"y_proba": unmasked_model_y_proba, "y_test": y_test, "original_y_test": original_y_test, "train_len": len(y_train_onlylabeled)}
+        unmasked_model = clone(model)
+        unmasked_X_train = enc_X_train_onlylabeled.reshape(enc_X_train_onlylabeled.shape[0], -1) # Flatten
+        unmasked_X_test = enc_X_test.reshape(enc_X_test.shape[0], -1) # Flatten
+        unmasked_model.fit(unmasked_X_train, y_train_onlylabeled)
+        unmasked_model_y_proba = unmasked_model.predict(unmasked_X_test)
+        pred_dict['unmasked'][k] = {"y_proba": unmasked_model_y_proba, "y_test": y_test, "original_y_test": original_y_test, "train_len": len(y_train_onlylabeled)}
 
         # Model masked
-        for mask_name, mask in masks.items():
+        for mask_name, mask in global_masks.items():
             if not os.path.exists(results_files_dict[mask_name]):
                 masked_model = clone(model)
                 # We mask X_train and X_test by multiplying sequences in X by the mask
@@ -142,7 +161,62 @@ def main(enc, enc_X_train, enc_X_test, masks, y_train, y_test, labeled_percentag
                 masked_model.fit(masked_X_train, y_train_onlylabeled)
                 masked_model_y_proba = masked_model.predict(masked_X_test)
                 pred_dict[mask_name][k] = {"y_proba": masked_model_y_proba, "y_test": y_test, "original_y_test": original_y_test, "train_len": len(y_train_onlylabeled)}
+                # Apply the mask on the model's weights not on the instances
+                for aftermask_name, aftermask_value in after_masks.items():
+                    aftermask_model = clone(model)
+                    aftermask_model.fit(unmasked_X_train, y_train_onlylabeled)
+                    # X has been flattened from (N, 235, 20) to (N, 4700)
+                    # The mask is (1, 235, 1)
+                    # Now we need to adapt the mask to the new shape (N, 4700) repeating values to match the corresponding positions in the new shape
+                    X_shape_before_flatten = enc_X_train_onlylabeled.shape
+                    new_mask = np.repeat(mask, X_shape_before_flatten[2], axis=2).flatten()
+                    # If model is a pipeline, we need to access the ridge model
+                    if model.__class__.__name__ == 'Pipeline':
+                        aftermask_model.named_steps['ridge'].coef_ = aftermask_model.named_steps['ridge'].coef_ * (new_mask * aftermask_value)
+                    else:
+                        aftermask_model.coef_ = aftermask_model.coef_ * (new_mask * aftermask_value)
+
+                    aftermasked_model_y_proba = aftermask_model.predict(unmasked_X_test)
+                    pred_dict[f'{mask_name}_{aftermask_name}'][k] = {"y_proba": aftermasked_model_y_proba, "y_test": y_test, "original_y_test": original_y_test, "train_len": len(y_train_onlylabeled)}
             
+        # Model with individual masks
+        for mask_name, args in individual_masks.items():
+            get_mask = args[0]
+            weight = args[1]
+            if len(args) > 2:
+                apply_gaussian_filter = args[2]
+            else:
+                apply_gaussian_filter = False
+            masked_model = clone(model)
+            masked_X_train = enc_X_train_onlylabeled * get_mask(wt_seq, enc_X_train_onlylabeled, weight=weight, apply_gaussian_filter=apply_gaussian_filter)
+            masked_X_train = masked_X_train.reshape(masked_X_train.shape[0], -1) # Flatten
+            masked_X_test = enc_X_test * get_mask(wt_seq, enc_X_test, weight=weight)
+            masked_X_test = masked_X_test.reshape(masked_X_test.shape[0], -1) # Flatten
+            masked_model.fit(masked_X_train, y_train_onlylabeled)
+            masked_model_y_proba = masked_model.predict(masked_X_test)
+            pred_dict[mask_name][k] = {"y_proba": masked_model_y_proba, "y_test": y_test, "original_y_test": original_y_test, "train_len": len(y_train_onlylabeled)}
+
+        # Combine individual and global masks
+        for mask_name, args in individual_masks.items():
+            get_mask = args[0]
+            weight = args[1]
+            if len(args) > 2:
+                apply_gaussian_filter = args[2]
+            else:
+                apply_gaussian_filter = False
+            masked_model = clone(model)
+            masked_X_train = enc_X_train_onlylabeled * get_mask(wt_seq, enc_X_train_onlylabeled, weight=weight, apply_gaussian_filter=apply_gaussian_filter)
+            masked_X_test = enc_X_test * get_mask(wt_seq, enc_X_test, weight=weight)
+            for global_mask_name, global_mask in global_masks.items():
+                double_masked_model = clone(model)
+                double_masked_X_train = masked_X_train * global_mask
+                double_masked_X_test = masked_X_test * global_mask
+                double_masked_X_train = double_masked_X_train.reshape(double_masked_X_train.shape[0], -1)
+                double_masked_X_test = double_masked_X_test.reshape(double_masked_X_test.shape[0], -1)
+                double_masked_model.fit(double_masked_X_train, y_train_onlylabeled)
+                double_masked_model_y_proba = double_masked_model.predict(double_masked_X_test)
+                pred_dict[f"{mask_name}_{global_mask_name}"][k] = {"y_proba": double_masked_model_y_proba, "y_test": y_test, "original_y_test": original_y_test, "train_len": len(y_train_onlylabeled)}
+
         # Print formatted taken time in hours, minutes and seconds
         print(f"\tExperiment with {enc} using {labeled_percentage*100}% labeled instances (k={k}) took {time.strftime('%Hh %Mm %Ss', time.gmtime(time.time() - start))}")
 
@@ -166,11 +240,24 @@ def main(enc, enc_X_train, enc_X_test, masks, y_train, y_test, labeled_percentag
 if __name__ == "__main__":
 
     # How to run:
-    # python Masking_extrapolation_experiments.py data/iris/ --cpus 32 --trainvariants 1 2 --testvariants 3
+    # python Masking_extrapolation_experiments.py --data ../data/iris/ --cpus 32 --trainvariants 1 2 --testvariants 3
     CLI=argparse.ArgumentParser()
     CLI.add_argument(
         "--data", 
         type=str
+    )
+    CLI.add_argument(
+        "--model", 
+        type=str
+    )
+    CLI.add_argument(
+        "--normalize", 
+        type=str
+    )
+    CLI.add_argument(
+        "--outdir", 
+        type=str,
+        default="results"
     )
     CLI.add_argument(
         "--cpus",
@@ -190,14 +277,31 @@ if __name__ == "__main__":
         default=[2],
     )
     
+    # Parse the command line folder to variables
     dataset_folder = CLI.parse_args().data
     dataset = dataset_folder.split('data/')[-1].split('/')[0]
     
-    model = Ridge()
-    results_folder = f"results/masking_extrapolation_experiments_{dataset}_{model.__class__.__name__}/"
+    # Create model
+    if CLI.parse_args().model == "Ridge":
+        if CLI.parse_args().normalize == "True":
+            model = make_pipeline(StandardScaler(), Ridge())
+        else:
+            model = Ridge()
+    else:
+        raise ValueError("Model not supported")
+    
+    if hasattr(model, 'steps'):
+        model_name = '_'.join([submodel.__class__.__name__ for submodel in model])
+    else:
+        model_name = model.__class__.__name__
+
+    # Create results folder
+    outdir = CLI.parse_args().outdir
+    experiments_id = f"masking_experiments_{dataset}_{model_name}"
 
     labeled_percentages = [1, 0.75, 0.5, 0.25, 0.1, 0.05, 0.03, 0.01]
     
+    # Load y data
     y_file = os.path.join(dataset_folder, dataset+"_y.pkl")
     y = pkl.load(open(y_file, 'rb'))
     # If y is a list, convert it to a numpy array
@@ -212,30 +316,76 @@ if __name__ == "__main__":
                     #   "ProtVec"   # ProtVec is problematic because it uses different lenght (233 instead of 235 because it works by 3-mers)
                       ]
     
+    # Load files related to conservation values
     msa_file = os.path.join(dataset_folder, "aligned_seqs.fasta")
     wt_seq_file = os.path.join(dataset_folder, dataset+"_wt.fasta")
+    wt_seq = SeqIO.read(wt_seq_file, "fasta").seq
     starting_pos = get_wt_starting_position(wt_seq_file)
     relative_entropy_mask = get_sequence_conservation_mask(msa_file, method="relative")
     shannon_entropy_mask = get_sequence_conservation_mask(msa_file, method="shannon")
     lockless_entropy_mask = get_sequence_conservation_mask(msa_file, method="lockless")
 
-    masks = {"relative": relative_entropy_mask,
-             "shannon": shannon_entropy_mask,
-             "lockless": lockless_entropy_mask,
-             "inverted_relative": (1 / 1 + relative_entropy_mask),
-             "inverted_shannon": (1 / 1 + shannon_entropy_mask),
-             "inverted_lockless": (1 / 1 + lockless_entropy_mask),
-             "normalized_relative": relative_entropy_mask / np.max(relative_entropy_mask),
-             "normalized_shannon": shannon_entropy_mask / np.max(shannon_entropy_mask),
-             "normalized_lockless": lockless_entropy_mask / np.max(lockless_entropy_mask),
-             "random": np.random.rand(relative_entropy_mask.shape[0], relative_entropy_mask.shape[1], 1)
-             }
+    # Create global masks: all sequences are masked with the same mask
+    global_masks = {
+                    "relative": relative_entropy_mask,
+                    "relativex2": relative_entropy_mask*2,
+                    "relativex10": relative_entropy_mask*10,
+                    "relativex0.5": relative_entropy_mask*0.5,
+                    "relativex0.1": relative_entropy_mask*0.1,
+                    "shannon": shannon_entropy_mask,
+                    "shannonx2": shannon_entropy_mask*2,
+                    "shannonx10": shannon_entropy_mask*10,
+                    "shannonx0.5": shannon_entropy_mask*0.5,
+                    "shannonx0.1": shannon_entropy_mask*0.1,
+                    "lockless": lockless_entropy_mask,
+                    "locklessx2": lockless_entropy_mask*2,
+                    "locklessx10": lockless_entropy_mask*10,
+                    "locklessx0.5": lockless_entropy_mask*0.5,
+                    "locklessx0.1": lockless_entropy_mask*0.1,
+                    "1-shannon": 1 - shannon_entropy_mask,
+                    "inverted_relative": (1 / 1 + relative_entropy_mask),
+                    "inverted_shannon": (1 / 1 + shannon_entropy_mask),
+                    "inverted_lockless": (1 / 1 + lockless_entropy_mask),
+                    "normalized_relative": relative_entropy_mask / np.mean(relative_entropy_mask),
+                    "normalized_shannon": shannon_entropy_mask / np.mean(shannon_entropy_mask),
+                    "normalized_lockless": lockless_entropy_mask / np.mean(lockless_entropy_mask),
+                    "random": np.random.rand(relative_entropy_mask.shape[0], relative_entropy_mask.shape[1], 1),
+                    }
+
+    # Create individual masks: each sequence has a different mask
+    individual_masks = {
+                        "variants_emphasis_weight_0.25": (get_variant_position_mask, 0.25),
+                        "variants_emphasis_weight_0.5": (get_variant_position_mask, 0.5),
+                        "variants_emphasis_weight_0.75": (get_variant_position_mask, 0.75),
+                        "variants_emphasis_weight_1.5": (get_variant_position_mask, 1.5),
+                        "variants_emphasis_weight_2": (get_variant_position_mask, 2),
+                        "variants_emphasis_weight_5": (get_variant_position_mask, 5),
+                        "variants_gaussian_emphasis_weight_0.25": (get_variant_position_mask, 0.25, True),
+                        "variants_gaussian_emphasis_weight_0.5": (get_variant_position_mask, 0.5, True),
+                        "variants_gaussian_emphasis_weight_0.75": (get_variant_position_mask, 0.75, True),
+                        "variants_gaussian_emphasis_weight_1.5": (get_variant_position_mask, 1.5, True),
+                        "variants_gaussian_emphasis_weight_2": (get_variant_position_mask, 2, True),
+                        "variants_gaussian_emphasis_weight_5": (get_variant_position_mask, 5, True)
+                        }
+    after_masks = {"after_0.1": 0.1,
+                   "after_0.25": 0.25,
+                   "after_0.5": 0.5,
+                   "after_0.75": 0.75,
+                   "after_1": 1,
+                   "after_1.5": 1.5,
+                   "after_2": 2,
+                   "after_5": 5,
+                   "after_10": 10
+                   }   
+    # Load X data (encode if necessary)
     encodings_dict = dict()
+    wt_encodings_dict = dict()
     
     i=0
     for encoding_name in encoding_names:
         start = time.time()
         encoding_file = os.path.join(dataset_folder, f'X_{encoding_name}.pkl')
+        encoding_wt_file =  os.path.join(dataset_folder, f'wt_{encoding_name}.pkl')
         i+=1
         # If file does not exist, encode
         if not os.path.exists(encoding_file):
@@ -251,14 +401,22 @@ if __name__ == "__main__":
         else:
             enc_X = pkl.load(open(encoding_file, 'rb'))
         
+        if not os.path.exists(encoding_wt_file):
+            # Encoded wt
+            enc_wt = SequenceEncoding(encoding_name).get_encoding(wt_seq)
+            with open(encoding_wt_file, 'wb') as handle:
+                pkl.dump(enc_wt, handle, protocol=pkl.HIGHEST_PROTOCOL)
+        else:
+            enc_wt = pkl.load(open(encoding_wt_file, 'rb'))
+        
         encodings_dict[encoding_name] = enc_X
+        wt_encodings_dict[encoding_name] = enc_wt
 
-    wt_sequence = SeqIO.read(wt_seq_file, "fasta").seq
     variants_dict = dict()
     X_file = os.path.join(dataset_folder, dataset+"_X.pkl")
     X = pkl.load(open(X_file, 'rb'))
     for i, seq in enumerate(X):
-        variants = sum([1 for i in range(len(seq)) if seq[i] != wt_sequence[i]])
+        variants = sum([1 for i in range(len(seq)) if seq[i] != wt_seq[i]])
         if variants in variants_dict:
             variants_dict[variants].append(i)
         else:
@@ -280,20 +438,25 @@ if __name__ == "__main__":
     for variant in test_variants:
         test_indexes.extend(variants_dict[variant])
 
-    results_folder = results_folder.replace("experiments_", f"experiments_trainedwith_{'_'.join(str(x) for x in train_variants)}_testedwith_{'_'.join(str(x) for x in test_variants)}_")
+    experiments_id = experiments_id.replace("experiments_", f"experiments_trainedwith_{'_'.join(str(x) for x in train_variants)}_testedwith_{'_'.join(str(x) for x in test_variants)}_")
+    results_folder = os.path.join("results", outdir, experiments_id)
     
+    # Print some info
     print(f"* Total dict size: {round(sum([enc_X.nbytes for enc_X in encodings_dict.values()])/(1024*1024), 2)} MB | {round(sum([enc_X.nbytes for enc_X in encodings_dict.values()])/(1024*1024*1024), 2)} GB", flush=True)
     arguments = []
     for labeled_percentage in labeled_percentages:
-        arguments.extend([( enc,
-                            encodings_dict[enc][train_indexes],
-                            encodings_dict[enc][test_indexes],
-                            masks,
-                            y[train_indexes],
-                            y[test_indexes],
-                            labeled_percentage,
-                            model,
-                            results_folder) for enc in encoding_names])
+        arguments.extend([(enc,
+                           encodings_dict[enc][train_indexes],
+                           encodings_dict[enc][test_indexes],
+                           global_masks, 
+                           individual_masks, 
+                           after_masks,
+                           wt_encodings_dict[enc], 
+                           y[train_indexes],
+                           y[test_indexes],
+                           labeled_percentage,
+                           model,
+                           results_folder) for enc in encoding_names])
     print(f"* Total number of experiments: {len(arguments)}")
     print(f"* Number of cores: {CLI.parse_args().cpus}")
     print(f"* Training with variants of length {train_variants} with {len(train_indexes)} samples")
