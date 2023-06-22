@@ -133,3 +133,4 @@ dmypy.json
 /data_onehot/
 results*
 TransferLearning_vs_Semisupervised/ProteinBERT/model_/*
+TransferLearning_vs_Semisupervised/ProtTrans
