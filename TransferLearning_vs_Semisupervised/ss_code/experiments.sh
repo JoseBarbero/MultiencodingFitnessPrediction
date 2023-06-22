@@ -1,0 +1,2 @@
+python singleview_grid_search.py --data ../../data/avgfp/ --cpus 50 --model MultiviewCoReg --trainvariants 1 2 3 4 5 6 7 8 9 10 --testvariants 1 2 3 4 5 6 7 8 9 10
+python multiview_grid_search.py --data ../../data/avgfp/ --cpus 50 --model MultiviewCoReg --trainvariants 1 2 3 4 5 6 7 8 9 10 --testvariants 1 2 3 4 5 6 7 8 9 10
