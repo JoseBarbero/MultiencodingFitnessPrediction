@@ -11,9 +11,8 @@ import pickle as pkl
 import time
 from itertools import combinations
 
-
-from concurrent.futures import ProcessPoolExecutor as Pool
-
+#from concurrent.futures import ProcessPoolExecutor as Pool
+from multiprocessing import Pool
 
 from pathlib import Path
 import random 
@@ -46,7 +45,9 @@ import argparse
 
 def fold(arguments):
 
-    model, enc1, enc2, enc1_X_train, enc2_X_train, enc1_X_test, enc2_X_test, y_train, y_test, labeled_percentage, ss_method, pred_dicts_ct, k, original_y_test = arguments
+    model, enc1, enc2, enc1_X_train, enc2_X_train, enc1_X_test, enc2_X_test, y_train, y_test, labeled_percentage, ss_method, pred_dicts_ct, k, original_y_test, temp_results_file = arguments
+    
+    np.random.seed(k)
 
     start = time.time()
 
@@ -119,11 +120,17 @@ def fold(arguments):
 
         pred_dicts_ct.append({"y_proba": ct_y_pred, "y_test": y_test, "original_y_test": original_y_test, "train_len": len(y_train_onlylabeled)})
         
+    # Save temporary results
+    with open(temp_results_file, "wb") as f:
+        pkl.dump(pred_dicts_ct, f)
+
     # Print formatted taken time in hours, minutes and seconds
     if enc2 == None:
         print(f"\tExperiment with {enc1} using {labeled_percentage*100}% labeled instances (k={k}) took {time.strftime('%Hh %Mm %Ss', time.gmtime(time.time() - start))}")
     else:
         print(f"\tExperiment with {enc1} and {enc2} using {labeled_percentage*100}% labeled instances (k={k}) took {time.strftime('%Hh %Mm %Ss', time.gmtime(time.time() - start))}")
+
+
 
 def main(arguments):
     enc1, enc2, enc1_X_train, enc2_X_train, enc1_X_test, enc2_X_test, y_train, y_test, labeled_percentage, ss_method, model, results_folder, train_variants, test_variants = arguments
@@ -174,13 +181,23 @@ def main(arguments):
     # So we just run it n_splits times
     arguments = []
     for k in range(n_splits):
-        arguments.append([model, enc1, enc2, enc1_X_train, enc2_X_train, enc1_X_test, enc2_X_test, y_train, y_test, labeled_percentage, ss_method, pred_dicts_ct, k, original_y_test])
+        temp_results_file = os.path.join(results_folder, f'pred_dict_ss_{enc1}_{enc2}_{labeled_percentage}_{k}.pkl')
+        #fold([model, enc1, enc2, enc1_X_train, enc2_X_train, enc1_X_test, enc2_X_test, y_train, y_test, labeled_percentage, ss_method, pred_dicts_ct, k, original_y_test])
+        arguments.append([model, enc1, enc2, enc1_X_train, enc2_X_train, enc1_X_test, enc2_X_test, y_train, y_test, labeled_percentage, ss_method, pred_dicts_ct, k, original_y_test, temp_results_file])
         
     # Create k threads that call fold function
-    with Pool(k) as pool:
+    with Pool(n_splits) as pool:
         pool.map(fold, arguments)
         pool.close()
         pool.join()
+    
+    # Read temp files and merge them
+    for k in range(n_splits):
+        temp_results_file = os.path.join(results_folder, f'pred_dict_ss_{enc1}_{enc2}_{labeled_percentage}_{k}.pkl')
+        with open(temp_results_file, 'rb') as handle:
+            pred_dicts_ct.extend(pkl.load(handle))
+        os.remove(temp_results_file)
+    
 
     # Save dicts to pickle files
     with open(ss_results_file, 'wb') as handle:
@@ -193,15 +210,12 @@ def main(arguments):
     # Free memory (it seems threads are waiting taking memory innecesarily)
     del enc1_X_train
     del enc1_X_test
-    del enc1_X_train_onlylabeled
     
     if enc2:
         del enc2_X_train
         del enc2_X_test
-        del enc2_X_train_onlylabeled
     
     del y_train
-    del y_train_onlylabeled
     del y_test
     gc.collect()
 
@@ -287,7 +301,7 @@ if __name__ == "__main__":
         ss_method = SelfTraining
         print("SSmethod: ", ss_method.__class__.__name__)
     elif CLI.parse_args().ssmethod.lower() == "tritrainingregressor":
-        ss_method = TriTrainingRegressor(base_estimator=clone(model), error_tol=10, y_tol_per=10)
+        ss_method = TriTrainingRegressor(base_estimator=clone(model), y_tol_per=1)
         print("SSmethod: ", ss_method.__class__.__name__)
     elif CLI.parse_args().ssmethod.lower() == "multiviewcoregression":
         ss_method = MultiviewCoReg(max_iters=100, pool_size=100, p1=2, p2=5)
@@ -304,7 +318,11 @@ if __name__ == "__main__":
         model_name = model.__class__.__name__
 
     # Create results folder
-    experiments_id = f"semisupervised_extrapolation_experiments_{dataset}_{model_name}_{CLI.parse_args().ssmethod}"
+    if CLI.parse_args().enc2:
+        experiments_id = f"semisupervised_extrapolation_experiments_{dataset}_{model_name}_{CLI.parse_args().ssmethod}_{CLI.parse_args().enc1}_{CLI.parse_args().enc2}"
+    else:
+        # experiments_id = f"semisupervised_extrapolation_experiments_{dataset}_{model_name}_{CLI.parse_args().ssmethod}_{CLI.parse_args().enc1}"
+        experiments_id = f"semisupervised_extrapolation_experiments_{dataset}_{model_name}_{CLI.parse_args().ssmethod}"
     
     labeled_percentages = CLI.parse_args().labeled
     
@@ -435,6 +453,9 @@ if __name__ == "__main__":
     # https://stackoverflow.com/questions/19257070/unintended-multithreading-in-python-scikit-learn/42124978#42124978
     # terminal: export OPENBLAS_NUM_THREADS=1
     # To know numpy/scipy config: https://stackoverflow.com/questions/9000164/how-to-check-blas-lapack-linkage-in-numpy-and-scipy
-    n_cores = CLI.parse_args().cpus
-    with Pool(n_cores) as pool:
-        pool.map(main, arguments, chunksize=1)
+    # n_cores = CLI.parse_args().cpus
+    # with Pool(n_cores) as pool:
+    #     pool.map(main, arguments, chunksize=1)
+    
+    for arg in arguments:
+        main(arg)

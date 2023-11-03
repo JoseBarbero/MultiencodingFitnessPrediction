@@ -114,24 +114,22 @@ def job(i, dataset_folder, dataset_name, general_model, tune, labeled_size, log_
 
         #fit
         models = { 
-            'rf': (RandomForestRegressor(), {'base_estimator__min_samples_split': range(3, 11), 
-                                             'base_estimator__max_features': ['sqrt', 'log2', None],
-                                             'error_tol': [0.0001, 0.01, 0.1, 1, 10], 
-                                             'y_tol_per': [0.0001, 0.01, 0.1, 1, 10]}), 
-            'ab': (AdaBoostRegressor(), {'base_estimator__n_estimators': range(50, 201, 25), 
-                                         'base_estimator__learning_rate': 10. ** np.linspace(-4, 1, 30), 
-                                         'error_tol': [0.0001, 0.01, 0.1, 1, 10], 
-                                         'y_tol_per': [0.0001, 0.01, 0.1, 1, 10]}),
-            'dt': (DecisionTreeRegressor(), {'base_estimator__min_samples_split': range(3, 11), 
-                                             'base_estimator__max_features': ['sqrt', 'log2', None], 
-                                             'error_tol': [0.0001, 0.01, 0.1, 1, 10], 
-                                             'y_tol_per': [0.0001, 0.01, 0.1, 1, 10]}), 
+            # 'rf': (RandomForestRegressor(), {'base_estimator__min_samples_split': range(3, 11), 
+            #                                  'base_estimator__max_features': ['sqrt', 'log2', None],
+            #                                  'error_tol': [0.0001, 0.01, 0.1, 1, 10], 
+            #                                  'y_tol_per': [0.0001, 0.01, 0.1, 1, 10]}), 
+            # 'ab': (AdaBoostRegressor(), {'base_estimator__n_estimators': range(50, 201, 25), 
+            #                              'base_estimator__learning_rate': 10. ** np.linspace(-4, 1, 30), 
+            #                              'error_tol': [0.0001, 0.01, 0.1, 1, 10], 
+            #                              'y_tol_per': [0.0001, 0.01, 0.1, 1, 10]}),
+            # 'dt': (DecisionTreeRegressor(), {'base_estimator__min_samples_split': range(3, 11), 
+            #                                  'base_estimator__max_features': ['sqrt', 'log2', None], 
+            #                                  'error_tol': [0.0001, 0.01, 0.1, 1, 10], 
+            #                                  'y_tol_per': [0.0001, 0.01, 0.1, 1, 10]}), 
             'r': (Ridge(), {'base_estimator__alpha': np.arange(0, 1.05, 0.05), 
-                             'error_tol': [0.0001, 0.01, 0.1, 1, 10], 
                              'y_tol_per': [0.0001, 0.01, 0.1, 1, 10]}),
-            'svm': (SVR(), {'base_estimator__kernel': ['rbf', 'linear'], 
-                                             'error_tol': [0.0001, 0.01, 0.1, 1, 10], 
-                                             'y_tol_per': [0.0001, 0.01, 0.1, 1, 10]}), 
+            'svm': (SVR(), {'base_estimator__kernel': ['rbf', 'linear'],
+                            'y_tol_per': [0.0001, 0.01, 0.1, 1, 10]}), 
         }
         
         for key in models: 
@@ -169,7 +167,6 @@ def job(i, dataset_folder, dataset_name, general_model, tune, labeled_size, log_
                     best_params_file.write("Best score: " + str(result.best_score_) + "\n")
                     best_params_file.write("Best Spearman: " + str(spearmanr(y_test, prediction_tritr)[0]) + "\n")
                     best_params_file.write("--------------------------------------------------------------\n")
-
             else: 
                 tritr.fit(X_train, y_train_tritr)
                 prediction_tritr = tritr.predict(X_test)
@@ -257,7 +254,7 @@ if __name__=="__main__":
 
     log_file = CLI.parse_args().logfile
 
-    models = ['TriTrainingRegressor', 'CoRegression']
+    models = ['TriTrainingRegressor'] #, 'CoRegression']
 
     labeled_sizes = [0.5, 0.25, 0.1]
 

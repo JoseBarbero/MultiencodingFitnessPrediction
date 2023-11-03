@@ -20,7 +20,7 @@ def get_regression_dataset(X, y):
     #X, y = check_X_y(X, y)
     
     X_label = [_x for _x, _y in zip(X, y) if not np.isnan(_y)]
-    y_label = [_y for _y in y if not np.isnan(_y)]
+    y_label = [_y for _y in y  if not np.isnan(_y)]
     X_unlabel = [_x for _x, _y in zip(X, y) if np.isnan(_y)]
        
     return np.array(X_label), np.array(y_label), np.array(X_unlabel)
@@ -31,8 +31,7 @@ class TriTrainingRegressor(BaseEstimator, RegressorMixin):
     def __init__(
         self,
         base_estimator=DecisionTreeRegressor(),
-        n_samples=None,
-        error_tol = 0.1, 
+        n_samples=None, 
         y_tol_per = 1, 
         random_state=None,
         n_jobs=None,
@@ -55,7 +54,6 @@ class TriTrainingRegressor(BaseEstimator, RegressorMixin):
         """
         self.base_estimator = base_estimator
         self.n_samples = n_samples
-        self.error_tol = error_tol
         self.y_tol_per = y_tol_per
         self.y_tol = None
         self._N_LEARNER = 3
@@ -208,6 +206,10 @@ class TriTrainingRegressor(BaseEstimator, RegressorMixin):
         select = len(L[0]) - to_remove
 
         return resample(*L, replace=False, n_samples=select, random_state=random_state)
+    
+    @staticmethod
+    def _are_same_label(y1, y2, y_tol): 
+        return np.isclose(y1, y2, atol = y_tol)
 
     #CAMBIO: forma de calcular el error 
     def _measure_error(
@@ -235,16 +237,12 @@ class TriTrainingRegressor(BaseEstimator, RegressorMixin):
         y1 = h1.predict(X).astype('float64')
         y2 = h2.predict(X).astype('float64')
         
-        #CAMBIO: Cómo saber si h1 y h2 hacen clasificaciones incorrectas (cometen un error mayor que un threshold)
-        error_h1 = np.array([(y_i-y1_i)**2 for y_i, y1_i in zip(y, y1)])
-        error_h2 = np.array([(y_i-y2_i)**2 for y_i, y2_i in zip(y, y2)])
-        
-        error = np.count_nonzero(
-                np.logical_and(error_h1 > np.full(error_h1.shape, self.error_tol) , error_h2 > np.full(error_h2.shape, self.error_tol))
-                )
-        
-        #CAMBIO: Cómo saber si la clasificación de h1 y la de h2 son la misma (si los valores predichos están cerca, pero cuánto ???)
-        coincidence = np.count_nonzero(np.isclose(y1, y2, atol = self.y_tol))
+        predict_same = TriTrainingRegressor._are_same_label(y1, y2, self.y_tol)
+        predict_wrong = np.logical_not(TriTrainingRegressor._are_same_label(y2, y, self.y_tol))
+                                     
+        error = np.count_nonzero(np.logical_and(predict_same, predict_wrong))
+        coincidence = np.count_nonzero(predict_same)
+   
         return safe_division(error, coincidence, epsilon)
     
     #CAMBIO: ???
